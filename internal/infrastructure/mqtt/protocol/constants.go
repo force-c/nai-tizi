@@ -1,6 +1,5 @@
 package protocol
 
-// 操作码（与Java工程完全一致）
 // 协议说明：使用双向操作码，即上行和下行使用相同的操作码
 // 1001: 心跳 (heart) - 双向：下行心跳响应/上行心跳上报
 // 1002: 解绑 (unbind) - 双向：下行解绑指令/上行解绑响应
@@ -11,7 +10,6 @@ package protocol
 // 1007: 门连接事件 (doorConnectEvent) - 单向上行：门设备连接状态事件
 // 8000: 查询设备信息 (queryDeviceInfo) - 双向：下行查询指令/上行设备信息响应
 const (
-	// 操作码常量（与Java OptCodeEnum完全一致）
 	OptCodeHeart            = 1001 // 心跳 - 双向
 	OptCodeUnbind           = 1002 // 解绑 - 双向
 	OptCodeModeControl      = 1003 // 模式控制 - 双向

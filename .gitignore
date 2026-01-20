@@ -82,10 +82,9 @@ logs/
 
 # 配置文件（包含敏感信息）
 # 保留示例配置，忽略实际配置
-cmd/api/conf.prod.yaml
-cmd/api/zaplogger.prod.yaml
+#cmd/api/conf.prod.yaml
+#cmd/api/zaplogger.prod.yaml
 
-# 可选：如果开发环境配置也包含敏感信息，取消下面注释
 cmd/api/conf.dev.yaml
 cmd/api/zaplogger.dev.yaml
 

@@ -14,7 +14,6 @@ const (
 	aesSecret = "f6fec7aaka0a83tt8997gac486tt5a8fdcc19923"
 )
 
-// EncryptWithTimestamp 加密结构体数据，算法与 Java AesEncryptionUtil 保持一致。
 func EncryptWithTimestamp(data interface{}, timestamp string) (string, error) {
 	b, err := json.Marshal(data)
 	if err != nil {

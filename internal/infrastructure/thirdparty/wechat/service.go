@@ -278,7 +278,6 @@ func (s *Manager) sendTemplateMessageWithRetry(ctx context.Context, msg *Templat
 }
 
 // SendDeviceControlNotification 发送设备控制结果通知
-// 对应Java工程的weChatNotify方法
 func (s *Manager) SendDeviceControlNotification(ctx context.Context, deviceName, state string, deviceId int64, openIDs []string, templateID string) {
 	if len(openIDs) == 0 {
 		s.logger.Debug("no openIDs to notify, skip sending WeChat notification")
