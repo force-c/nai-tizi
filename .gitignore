@@ -1,0 +1,174 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+*.test
+*.out
+
+# Go workspace file
+go.work
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.txt
+coverage.html
+
+# Dependency directories
+vendor/
+
+# Go build cache
+.cache/
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+*~
+.DS_Store
+
+# IDE - VSCode
+.vscode/
+*.code-workspace
+.history/
+
+# IDE - GoLand / IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# IDE - Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# IDE - Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
+# Operating System Files
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# Application specific
+# 日志文件
+logs/
+*.log
+*.log.*
+*.log.gz
+
+# 配置文件（包含敏感信息）
+# 保留示例配置，忽略实际配置
+cmd/api/conf.prod.yaml
+cmd/api/zaplogger.prod.yaml
+
+# 可选：如果开发环境配置也包含敏感信息，取消下面注释
+cmd/api/conf.dev.yaml
+cmd/api/zaplogger.dev.yaml
+
+# 环境变量文件
+.env
+.env.local
+.env.*.local
+
+# 临时文件和缓存
+tmp/
+temp/
+cache/
+*.cache
+
+# 构建产物
+build/
+dist/
+release/
+
+# 数据库文件（如果有本地SQLite等）
+*.db
+*.sqlite
+*.sqlite3
+
+# 备份文件
+*.bak
+*.backup
+*-backup
+*.orig
+
+# 压缩文件
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# 文档生成
+docs/_build/
+site/
+
+# 性能分析文件
+*.prof
+*.cpu
+*.mem
+*.trace
+pprof/
+
+# 调试文件
+debug
+debug.test
+__debug_bin
+
+# Air live reload
+tmp/
+
+# 测试覆盖率
+coverage/
+*.cover
+
+# 私钥和证书
+*.key
+*.pem
+*.crt
+*.cer
+*.p12
+*.pfx
+
+# Docker
+.dockerignore
+
+# Kubernetes
+*.kubeconfig
+
+# 其他
+*.pid
+*.seed
+*.pid.lock
+.npm
+
+logs
+
+.claude
+.kiro
+
+web/node_modules

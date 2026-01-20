@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nai-tizi-api
+  labels:
+    app: nai-tizi-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nai-tizi-api
+  template:
+    metadata:
+      labels:
+        app: nai-tizi-api
+    spec:
+      containers:
+      - name: api
+        image: ghcr.io/your-org/nai-tizi:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: ENV
+          value: "production"
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: nai-tizi-config
+              key: db_host
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: nai-tizi-config
+              key: db_port
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: nai-tizi-secret
+              key: db_user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: nai-tizi-secret
+              key: db_password
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: nai-tizi-config
+              key: db_name
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: nai-tizi-config
+              key: redis_host
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: nai-tizi-config
+              key: redis_port
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: nai-tizi-secret
+              key: jwt_secret
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: logs
+        emptyDir: {}

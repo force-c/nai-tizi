@@ -1,0 +1,94 @@
+groups:
+  - name: api_alerts
+    interval: 30s
+    rules:
+      # API 可用性告警
+      - alert: APIDown
+        expr: up{job="nai-tizi-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API 服务不可用"
+          description: "{{ $labels.instance }} API 服务已停止运行超过 1 分钟"
+
+      # 高错误率告警
+      - alert: HighErrorRate
+        expr: |
+          rate(http_requests_total{status=~"5.."}[5m]) 
+          / rate(http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API 错误率过高"
+          description: "{{ $labels.instance }} 错误率超过 5%"
+
+      # 高延迟告警
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95, 
+            rate(http_request_duration_seconds_bucket[5m])
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API 响应延迟过高"
+          description: "{{ $labels.instance }} P95 延迟超过 1 秒"
+
+      # CPU 使用率告警
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU 使用率过高"
+          description: "{{ $labels.instance }} CPU 使用率超过 80%"
+
+      # 内存使用率告警
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "内存使用率过高"
+          description: "{{ $labels.instance }} 内存使用率超过 85%"
+
+      # 磁盘使用率告警
+      - alert: HighDiskUsage
+        expr: |
+          (1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "磁盘使用率过高"
+          description: "{{ $labels.instance }} 磁盘使用率超过 85%"
+
+  - name: database_alerts
+    interval: 30s
+    rules:
+      # 数据库连接数告警
+      - alert: HighDatabaseConnections
+        expr: pg_stat_database_numbackends > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "数据库连接数过高"
+          description: "数据库连接数超过 80"
+
+      # 慢查询告警
+      - alert: SlowQueries
+        expr: rate(pg_stat_statements_mean_time_seconds[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "检测到慢查询"
+          description: "平均查询时间超过 1 秒"
