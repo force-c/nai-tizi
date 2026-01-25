@@ -75,8 +75,8 @@ func NewRoleService(db *gorm.DB, casbinService CasbinServiceV2, logger logger.Lo
 // Create 创建角色
 func (s *roleService) Create(ctx context.Context, role *model.Role) error {
 	// 检查角色标识是否已存在
-	var count int64
-	if err := s.db.Model(&model.Role{}).Where("role_key = ?", role.RoleKey).Count(&count).Error; err != nil {
+	count, err := gorm.G[model.Role](s.db).Where("role_key = ?", role.RoleKey).Count(ctx, "id")
+	if err != nil {
 		s.logger.Error("检查角色标识失败", zap.Error(err))
 		return fmt.Errorf("检查角色标识失败: %w", err)
 	}
@@ -85,7 +85,7 @@ func (s *roleService) Create(ctx context.Context, role *model.Role) error {
 	}
 
 	// 创建角色
-	if err := s.db.Create(role).Error; err != nil {
+	if err := gorm.G[model.Role](s.db).Create(ctx, role); err != nil {
 		s.logger.Error("创建角色失败", zap.Error(err))
 		return fmt.Errorf("创建角色失败: %w", err)
 	}
@@ -97,8 +97,8 @@ func (s *roleService) Create(ctx context.Context, role *model.Role) error {
 // Update 更新角色
 func (s *roleService) Update(ctx context.Context, role *model.Role) error {
 	// 检查角色是否存在
-	var existingRole model.Role
-	if err := s.db.Where("id = ?", role.ID).First(&existingRole).Error; err != nil {
+	existingRole, err := gorm.G[model.Role](s.db).Where("id = ?", role.ID).First(ctx)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("角色不存在")
 		}
@@ -133,8 +133,8 @@ func (s *roleService) Update(ctx context.Context, role *model.Role) error {
 // Delete 删除角色
 func (s *roleService) Delete(ctx context.Context, roleId int64) error {
 	// 检查角色是否存在
-	var role model.Role
-	if err := s.db.Where("id = ?", roleId).First(&role).Error; err != nil {
+	role, err := gorm.G[model.Role](s.db).Where("id = ?", roleId).First(ctx)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("角色不存在")
 		}
@@ -148,8 +148,8 @@ func (s *roleService) Delete(ctx context.Context, roleId int64) error {
 	}
 
 	// 检查是否有用户使用该角色
-	var userRoleCount int64
-	if err := s.db.Model(&model.MUserRole{}).Where("role_id = ?", roleId).Count(&userRoleCount).Error; err != nil {
+	userRoleCount, err := gorm.G[model.MUserRole](s.db).Where("role_id = ?", roleId).Count(ctx, "id")
+	if err != nil {
 		return fmt.Errorf("检查角色使用情况失败: %w", err)
 	}
 	if userRoleCount > 0 {
@@ -159,12 +159,12 @@ func (s *roleService) Delete(ctx context.Context, roleId int64) error {
 	// 开启事务删除角色及相关数据
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		// 删除角色菜单关联
-		if err := tx.Where("role_id = ?", roleId).Delete(&model.MRoleMenu{}).Error; err != nil {
+		if _, err := gorm.G[model.MRoleMenu](tx).Where("role_id = ?", roleId).Delete(ctx); err != nil {
 			return fmt.Errorf("删除角色菜单关联失败: %w", err)
 		}
 
 		// 删除角色
-		if err := tx.Where("id = ?", roleId).Delete(&model.Role{}).Error; err != nil {
+		if _, err := gorm.G[model.Role](tx).Where("id = ?", roleId).Delete(ctx); err != nil {
 			return fmt.Errorf("删除角色失败: %w", err)
 		}
 
@@ -175,8 +175,8 @@ func (s *roleService) Delete(ctx context.Context, roleId int64) error {
 
 // GetById 根据ID查询角色
 func (s *roleService) GetById(ctx context.Context, roleId int64) (*model.Role, error) {
-	var role model.Role
-	if err := s.db.Where("id = ?", roleId).First(&role).Error; err != nil {
+	role, err := gorm.G[model.Role](s.db).Where("id = ?", roleId).First(ctx)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("角色不存在")
 		}
@@ -189,8 +189,8 @@ func (s *roleService) GetById(ctx context.Context, roleId int64) (*model.Role, e
 
 // GetByRoleKey 根据角色标识查询角色
 func (s *roleService) GetByRoleKey(ctx context.Context, roleKey string) (*model.Role, error) {
-	var role model.Role
-	if err := s.db.Where("role_key = ?", roleKey).First(&role).Error; err != nil {
+	role, err := gorm.G[model.Role](s.db).Where("role_key = ?", roleKey).First(ctx)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("角色不存在")
 		}
@@ -234,8 +234,7 @@ func (s *roleService) AssignRoleToUser(ctx context.Context, userId, roleId int64
 	// 使用事务确保数据一致性
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		// 1. 检查用户是否存在
-		var user model.User
-		if err := tx.Where("user_id = ?", userId).First(&user).Error; err != nil {
+		if _, err := gorm.G[model.User](tx).Where("user_id = ?", userId).First(ctx); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return fmt.Errorf("用户不存在")
 			}
@@ -243,8 +242,8 @@ func (s *roleService) AssignRoleToUser(ctx context.Context, userId, roleId int64
 		}
 
 		// 2. 检查角色是否存在
-		var role model.Role
-		if err := tx.Where("id = ?", roleId).First(&role).Error; err != nil {
+		role, err := gorm.G[model.Role](tx).Where("id = ?", roleId).First(ctx)
+		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return fmt.Errorf("角色不存在")
 			}
@@ -252,10 +251,10 @@ func (s *roleService) AssignRoleToUser(ctx context.Context, userId, roleId int64
 		}
 
 		// 3. 检查是否已分配
-		var count int64
-		if err := tx.Model(&model.MUserRole{}).
+		count, err := gorm.G[model.MUserRole](tx).
 			Where("user_id = ? AND role_id = ?", userId, roleId).
-			Count(&count).Error; err != nil {
+			Count(ctx, "id")
+		if err != nil {
 			return fmt.Errorf("检查用户角色关系失败: %w", err)
 		}
 		if count > 0 {
@@ -267,7 +266,7 @@ func (s *roleService) AssignRoleToUser(ctx context.Context, userId, roleId int64
 			UserId: userId,
 			RoleId: roleId,
 		}
-		if err := tx.Create(userRole).Error; err != nil {
+		if err := gorm.G[model.MUserRole](tx).Create(ctx, userRole); err != nil {
 			s.logger.Error("分配用户角色失败", zap.Error(err))
 			return fmt.Errorf("分配用户角色失败: %w", err)
 		}
@@ -296,8 +295,8 @@ func (s *roleService) RemoveRoleFromUser(ctx context.Context, userId, roleId int
 	// 使用事务确保数据一致性
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		// 1. 获取角色信息（用于 Casbin 同步）
-		var role model.Role
-		if err := tx.Where("id = ?", roleId).First(&role).Error; err != nil {
+		role, err := gorm.G[model.Role](tx).Where("id = ?", roleId).First(ctx)
+		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return fmt.Errorf("角色不存在")
 			}
@@ -305,15 +304,14 @@ func (s *roleService) RemoveRoleFromUser(ctx context.Context, userId, roleId int
 		}
 
 		// 2. 从数据库移除用户角色关联
-		result := tx.Where("user_id = ? AND role_id = ?", userId, roleId).
-			Delete(&model.MUserRole{})
+		rowsAffected, err := gorm.G[model.MUserRole](tx).Where("user_id = ? AND role_id = ?", userId, roleId).Delete(ctx)
 
-		if result.Error != nil {
-			s.logger.Error("移除用户角色失败", zap.Error(result.Error))
-			return fmt.Errorf("移除用户角色失败: %w", result.Error)
+		if err != nil {
+			s.logger.Error("移除用户角色失败", zap.Error(err))
+			return fmt.Errorf("移除用户角色失败: %w", err)
 		}
 
-		if result.RowsAffected == 0 {
+		if rowsAffected == 0 {
 			return fmt.Errorf("用户角色关系不存在")
 		}
 
@@ -356,8 +354,7 @@ func (s *roleService) GetUserRoles(ctx context.Context, userId int64) ([]model.R
 // AssignMenusToRole 为角色分配菜单权限
 func (s *roleService) AssignMenusToRole(ctx context.Context, roleId int64, menuIds []int64) error {
 	// 检查角色是否存在
-	var role model.Role
-	if err := s.db.Where("id = ?", roleId).First(&role).Error; err != nil {
+	if _, err := gorm.G[model.Role](s.db).Where("id = ?", roleId).First(ctx); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("角色不存在")
 		}
@@ -367,7 +364,7 @@ func (s *roleService) AssignMenusToRole(ctx context.Context, roleId int64, menuI
 	// 开启事务
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		// 删除旧的菜单权限
-		if err := tx.Where("role_id = ?", roleId).Delete(&model.MRoleMenu{}).Error; err != nil {
+		if _, err := gorm.G[model.MRoleMenu](tx).Where("role_id = ?", roleId).Delete(ctx); err != nil {
 			return fmt.Errorf("删除旧菜单权限失败: %w", err)
 		}
 
@@ -461,4 +458,3 @@ func (s *roleService) GetRolePermissions(ctx context.Context, roleKey string) ([
 
 	return permissions, nil
 }
-
