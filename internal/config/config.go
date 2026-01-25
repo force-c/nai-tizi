@@ -17,6 +17,7 @@ type Database struct {
 	MaxIdleConns           int    `mapstructure:"maxIdleConns"`
 	ConnMaxLifetimeMinutes int    `mapstructure:"connMaxLifetimeMinutes"`
 	SlowThreshold          int    `mapstructure:"slowThreshold"` // 慢 SQL 阈值（毫秒），默认 100ms
+	AutoMigrate            bool   `mapstructure:"autoMigrate"`   // 是否开启 GORM 自动生成表结构
 }
 type Redis struct {
 	Addr, Password string

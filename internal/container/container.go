@@ -10,6 +10,7 @@ import (
 	"github.com/casbin/casbin/v2"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/force-c/nai-tizi/internal/config"
+	"github.com/force-c/nai-tizi/internal/domain/model"
 	"github.com/force-c/nai-tizi/internal/infrastructure/captcha"
 	"github.com/force-c/nai-tizi/internal/infrastructure/database"
 	"github.com/force-c/nai-tizi/internal/infrastructure/idempotent"
@@ -182,30 +183,31 @@ func (c *container) initDB() error {
 		c.logger.Warn("failed to register slow query plugin", zap.Error(err))
 	}
 
-	// GORM AutoMigrate 已禁用，请使用 SQL 脚本手动创建表
-	// 脚本位置：scripts/sql/
-	// 执行顺序：
-	// 1. scripts/sql/pgsql.sql   - 创建所有表结构
-	// 2. scripts/sql/insert.sql  - 插入初始化数据
-	//
-	// if err := db.AutoMigrate(
-	// 	&model.User{},
-	// 	&model.DictData{},
-	// 	&model.LoginLog{},
-	// 	&model.OperLog{},
-	// 	&model.AuthClient{},
-	// 	&model.BuMessageRetry{},
-	// 	&model.BuMessageRetryLog{},
-	// 	// RBAC 相关表
-	// 	&model.Role{},
-	// 	&model.Org{},
-	// 	&model.Menu{},
-	// 	&model.UserRole{},
-	// 	&model.RoleMenu{},
-	// 	&model.RoleOrg{},
-	// ); err != nil {
-	// 	return fmt.Errorf("failed to auto migrate database: %w", err)
-	// }
+	// GORM AutoMigrate 配置
+	if c.config.Database.AutoMigrate {
+		c.logger.Info("starting database auto migration...")
+		if err := db.AutoMigrate(
+			&model.User{},
+			&model.DictData{},
+			&model.LoginLog{},
+			&model.OperLog{},
+			&model.AuthClient{},
+			&model.BuMessageRetry{},
+			&model.BuMessageRetryLog{},
+			&model.Role{},
+			&model.Menu{},
+			&model.Org{},
+			&model.Config{},
+			&model.StorageEnv{},
+			&model.Attachment{},
+			&model.CasbinRule{},
+			&model.MUserRole{},
+			&model.MRoleMenu{},
+		); err != nil {
+			return fmt.Errorf("failed to auto migrate: %w", err)
+		}
+		c.logger.Info("database auto migration completed")
+	}
 	c.db = db
 	return nil
 }
