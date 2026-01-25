@@ -44,9 +44,3 @@ type AddRolePermissionRequest struct {
 	Action   string `json:"action" binding:"required" example:"write"`         // 操作类型（支持通配符）
 }
 
-// SetRoleInheritRequest 设置角色继承请求
-type SetRoleInheritRequest struct {
-	ChildRoleKey  string `json:"childRoleKey" binding:"required" example:"manager"` // 子角色标识
-	ParentRoleKey string `json:"parentRoleKey" binding:"required" example:"viewer"` // 父角色标识
-	OrgId         int64  `json:"orgId" binding:"required" example:"1"`              // 组织ID
-}

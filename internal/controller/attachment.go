@@ -9,6 +9,7 @@ import (
 	"github.com/force-c/nai-tizi/internal/logger"
 	"github.com/force-c/nai-tizi/internal/service"
 	"github.com/force-c/nai-tizi/internal/utils"
+	_ "github.com/force-c/nai-tizi/internal/utils/pagination"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )

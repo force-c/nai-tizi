@@ -55,12 +55,6 @@ type RoleService interface {
 
 	// GetRolePermissions 获取角色的所有权限
 	GetRolePermissions(ctx context.Context, roleKey string) ([][]string, error)
-
-	// SetRoleInherit 设置角色继承
-	SetRoleInherit(ctx context.Context, childRoleKey, parentRoleKey string) error
-
-	// DeleteRoleInherit 删除角色继承
-	DeleteRoleInherit(ctx context.Context, childRoleKey, parentRoleKey string) error
 }
 
 type roleService struct {
@@ -167,11 +161,6 @@ func (s *roleService) Delete(ctx context.Context, roleId int64) error {
 		// 删除角色菜单关联
 		if err := tx.Where("role_id = ?", roleId).Delete(&model.MRoleMenu{}).Error; err != nil {
 			return fmt.Errorf("删除角色菜单关联失败: %w", err)
-		}
-
-		// 删除角色继承关系
-		if err := tx.Where("role_id = ? OR parent_id = ?", roleId, roleId).Delete(&model.MRoleInherit{}).Error; err != nil {
-			return fmt.Errorf("删除角色继承关系失败: %w", err)
 		}
 
 		// 删除角色
@@ -473,36 +462,3 @@ func (s *roleService) GetRolePermissions(ctx context.Context, roleKey string) ([
 	return permissions, nil
 }
 
-// SetRoleInherit 设置角色继承
-func (s *roleService) SetRoleInherit(ctx context.Context, childRoleKey, parentRoleKey string) error {
-	if err := s.casbinService.SetRoleInherit(ctx, childRoleKey, parentRoleKey); err != nil {
-		s.logger.Error("设置角色继承失败",
-			zap.String("childRoleKey", childRoleKey),
-			zap.String("parentRoleKey", parentRoleKey),
-			zap.Error(err))
-		return fmt.Errorf("设置角色继承失败: %w", err)
-	}
-
-	s.logger.Info("设置角色继承成功",
-		zap.String("childRoleKey", childRoleKey),
-		zap.String("parentRoleKey", parentRoleKey))
-
-	return nil
-}
-
-// DeleteRoleInherit 删除角色继承
-func (s *roleService) DeleteRoleInherit(ctx context.Context, childRoleKey, parentRoleKey string) error {
-	if err := s.casbinService.DeleteRoleInherit(ctx, childRoleKey, parentRoleKey); err != nil {
-		s.logger.Error("删除角色继承失败",
-			zap.String("childRoleKey", childRoleKey),
-			zap.String("parentRoleKey", parentRoleKey),
-			zap.Error(err))
-		return fmt.Errorf("删除角色继承失败: %w", err)
-	}
-
-	s.logger.Info("删除角色继承成功",
-		zap.String("childRoleKey", childRoleKey),
-		zap.String("parentRoleKey", parentRoleKey))
-
-	return nil
-}

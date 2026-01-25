@@ -8,6 +8,7 @@ import (
 	"github.com/force-c/nai-tizi/internal/logger"
 	"github.com/force-c/nai-tizi/internal/service"
 	"github.com/force-c/nai-tizi/internal/utils"
+	_ "github.com/force-c/nai-tizi/internal/utils/pagination"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -228,7 +229,7 @@ func (c *storageEnvController) GetDefaultStorageEnv(ctx *gin.Context) {
 //	@Produce		json
 //	@Param			Authorization	header		string							true	"Bearer {token}"
 //	@Param			body			body		request.PageStorageEnvsRequest	true	"查询参数"
-//	@Success		200				{object}	response.Response{data=pagination.Page}
+//	@Success		200				{object}	response.Response{data=object}
 //	@Router			/api/v1/storage-env/page [post]
 func (c *storageEnvController) PageStorageEnv(ctx *gin.Context) {
 	var req request.PageStorageEnvsRequest

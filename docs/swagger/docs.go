@@ -579,9 +579,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/config/data": {
+        "/api/v1/config/code": {
             "get": {
-                "description": "根据配置类型获取配置的data字段（JSON格式），返回第一个匹配的配置",
+                "description": "根据配置编码获取配置列表",
                 "consumes": [
                     "application/json"
                 ],
@@ -591,13 +591,73 @@ const docTemplate = `{
                 "tags": [
                     "配置管理"
                 ],
-                "summary": "根据类型获取配置数据",
+                "summary": "根据编码获取配置列表",
                 "parameters": [
                     {
                         "type": "string",
                         "example": "\"system_settings\"",
-                        "description": "配置类型",
-                        "name": "type",
+                        "description": "配置编码",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "查询成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.ConfigResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/config/data": {
+            "get": {
+                "description": "根据配置编码获取配置的data字段（JSON格式），返回第一个匹配的配置",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "配置管理"
+                ],
+                "summary": "根据编码获取配置数据",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "\"system_settings\"",
+                        "description": "配置编码",
+                        "name": "code",
                         "in": "query",
                         "required": true
                     }
@@ -668,7 +728,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_request.ListConfigRequest"
+                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_request.PageConfigRequest"
                         }
                     }
                 ],
@@ -684,7 +744,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.ConfigListResponse"
+                                            "type": "object"
                                         }
                                     }
                                 }
@@ -693,66 +753,6 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "请求参数错误",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/config/type": {
-            "get": {
-                "description": "根据配置类型获取配置列表",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "配置管理"
-                ],
-                "summary": "根据类型获取配置列表",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "example": "\"system_settings\"",
-                        "description": "配置类型",
-                        "name": "type",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "查询成功",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.ConfigResponse"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "请求参数错误",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "服务器内部错误",
                         "schema": {
                             "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
                         }
@@ -2143,6 +2143,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/operLog/page": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "分页查询操作日志列表，支持按标题、操作者、业务类型、状态、时间范围筛选",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "操作日志"
+                ],
+                "summary": "分页查询操作日志列表",
+                "parameters": [
+                    {
+                        "description": "查询参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_request.PageOperLogRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "查询成功",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/operLog/{id}": {
             "get": {
                 "security": [
@@ -2436,7 +2487,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_request.ListOrgsRequest"
+                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_request.PageOrgsRequest"
                         }
                     }
                 ],
@@ -2452,7 +2503,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.PageResponse"
+                                            "type": "object"
                                         }
                                     }
                                 }
@@ -2928,103 +2979,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/role/inherit": {
-            "post": {
-                "description": "设置子角色继承父角色的所有权限",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "角色管理"
-                ],
-                "summary": "设置角色继承",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bearer {token}",
-                        "name": "Authorization",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "description": "继承信息",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_request.SetRoleInheritRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "参数错误",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "删除子角色对父角色的继承关系",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "角色管理"
-                ],
-                "summary": "删除角色继承",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Bearer {token}",
-                        "name": "Authorization",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "子角色标识",
-                        "name": "childRoleKey",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "父角色标识",
-                        "name": "parentRoleKey",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "参数错误",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/role/page": {
             "post": {
                 "description": "使用 Paginator 分页查询角色列表",
@@ -3052,7 +3006,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_request.ListRoleRequest"
+                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_request.PageRoleRequest"
                         }
                     }
                 ],
@@ -3068,7 +3022,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.PageResponse"
+                                            "type": "object"
                                         }
                                     }
                                 }
@@ -3656,7 +3610,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_request.ListStorageEnvsRequest"
+                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_request.PageStorageEnvsRequest"
                         }
                     }
                 ],
@@ -3672,7 +3626,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.PageResponse"
+                                            "type": "object"
                                         }
                                     }
                                 }
@@ -3682,7 +3636,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/storage-env/{envId}": {
+        "/api/v1/storage-env/{id}": {
             "get": {
                 "description": "根据环境ID获取存储环境详情",
                 "consumes": [
@@ -3706,7 +3660,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "环境ID",
-                        "name": "envId",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -3755,7 +3709,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "环境ID",
-                        "name": "envId",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -3770,7 +3724,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/storage-env/{envId}/test": {
+        "/api/v1/storage-env/{id}/test": {
             "post": {
                 "description": "测试指定存储环境的连接是否正常",
                 "consumes": [
@@ -3794,7 +3748,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "环境ID",
-                        "name": "envId",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     },
@@ -3984,130 +3938,10 @@ const docTemplate = `{
                     {
                         "enum": [
                             0,
-                            1,
-                            -1
+                            1
                         ],
                         "type": "integer",
-                        "description": "登录状态：0成功 1失败 -1全部",
-                        "name": "status",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "example": "\"2024-01-01 00:00:00\"",
-                        "description": "开始时间",
-                        "name": "startTime",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "example": "\"2024-12-31 23:59:59\"",
-                        "description": "结束时间",
-                        "name": "endTime",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "查询成功",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "请求参数错误",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "服务器内部错误",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/system/operLog/page": {
-            "get": {
-                "security": [
-                    {
-                        "Bearer": []
-                    }
-                ],
-                "description": "分页查询操作日志列表，支持按标题、操作者、业务类型、状态、时间范围筛选",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "操作日志"
-                ],
-                "summary": "分页查询操作日志列表",
-                "parameters": [
-                    {
-                        "minimum": 1,
-                        "type": "integer",
-                        "description": "页码",
-                        "name": "pageNum",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "minimum": 1,
-                        "type": "integer",
-                        "description": "每页数量",
-                        "name": "pageSize",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "example": "\"operTime\"",
-                        "description": "排序列",
-                        "name": "orderByColumn",
-                        "in": "query"
-                    },
-                    {
-                        "enum": [
-                            "asc",
-                            "desc"
-                        ],
-                        "type": "string",
-                        "example": "\"desc\"",
-                        "description": "排序方向",
-                        "name": "isAsc",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "模块标题（模糊查询）",
-                        "name": "title",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "操作者（模糊查询）",
-                        "name": "operName",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "业务类型",
-                        "name": "businessType",
-                        "in": "query"
-                    },
-                    {
-                        "enum": [
-                            "0",
-                            "1",
-                            "-1"
-                        ],
-                        "type": "string",
-                        "description": "操作状态：0成功 1失败 -1全部",
+                        "description": "登录状态：0成功 1失败，不传或null表示全部",
                         "name": "status",
                         "in": "query"
                     },
@@ -4340,7 +4174,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_request.ListUsersRequest"
+                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_request.PageUsersRequest"
                         }
                     }
                 ],
@@ -4356,7 +4190,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.PageResponse"
+                                            "type": "object"
                                         }
                                     }
                                 }
@@ -4625,72 +4459,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/auth/email": {
-            "post": {
-                "description": "向指定邮箱发送验证码，用于邮箱登录",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "认证"
-                ],
-                "summary": "发送邮箱验证码",
-                "parameters": [
-                    {
-                        "description": "邮箱地址",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_request.SendEmailCodeRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "object",
-                                            "properties": {
-                                                "code": {
-                                                    "type": "string"
-                                                },
-                                                "message": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "邮箱格式错误",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
-                        }
-                    },
-                    "403": {
-                        "description": "邮箱验证码功能未启用",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/auth/refresh": {
             "post": {
                 "description": "使用 RefreshToken 获取新的 AccessToken 和 RefreshToken（轮换机制）",
@@ -4749,9 +4517,8 @@ const docTemplate = `{
                 }
             }
         },
-        "/auth/sms": {
+        "/captcha/email": {
             "post": {
-                "description": "向指定手机号发送短信验证码，用于手机号登录",
                 "consumes": [
                     "application/json"
                 ],
@@ -4759,17 +4526,17 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "认证"
+                    "验证码"
                 ],
-                "summary": "发送短信验证码",
+                "summary": "发送邮箱验证码",
                 "parameters": [
                     {
-                        "description": "手机号",
+                        "description": "邮箱",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_request.SendSmsCodeRequest"
+                            "$ref": "#/definitions/internal_controller.SendEmailCaptchaRequest"
                         }
                     }
                 ],
@@ -4785,28 +4552,124 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "object",
-                                            "properties": {
-                                                "message": {
-                                                    "type": "string"
-                                                }
-                                            }
+                                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_infrastructure_captcha.CaptchaData"
                                         }
                                     }
                                 }
                             ]
                         }
-                    },
-                    "400": {
-                        "description": "手机号格式错误",
+                    }
+                }
+            }
+        },
+        "/captcha/image": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "验证码"
+                ],
+                "summary": "生成图形验证码",
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_infrastructure_captcha.CaptchaData"
+                                        }
+                                    }
+                                }
+                            ]
                         }
-                    },
-                    "403": {
-                        "description": "短信验证码功能未启用",
+                    }
+                }
+            }
+        },
+        "/captcha/sms": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "验证码"
+                ],
+                "summary": "发送短信验证码",
+                "parameters": [
+                    {
+                        "description": "手机号",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
+                            "$ref": "#/definitions/internal_controller.SendSMSCaptchaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_infrastructure_captcha.CaptchaData"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/captcha/types": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "验证码"
+                ],
+                "summary": "获取已启用的验证码类型",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -5396,12 +5259,16 @@ const docTemplate = `{
         "github_com_force-c_nai-tizi_internal_domain_request.CreateConfigRequest": {
             "type": "object",
             "required": [
+                "code",
                 "createBy",
                 "name",
-                "type",
                 "updateBy"
             ],
             "properties": {
+                "code": {
+                    "description": "配置编码",
+                    "type": "string"
+                },
                 "createBy": {
                     "description": "创建者",
                     "type": "integer"
@@ -5419,10 +5286,6 @@ const docTemplate = `{
                 },
                 "remark": {
                     "description": "备注",
-                    "type": "string"
-                },
-                "type": {
-                    "description": "配置类型",
                     "type": "string"
                 },
                 "updateBy": {
@@ -5539,6 +5402,10 @@ const docTemplate = `{
                     "description": "耗时（毫秒）",
                     "type": "integer"
                 },
+                "deviceType": {
+                    "description": "终端类型：web/ios/android/wechat",
+                    "type": "string"
+                },
                 "errorMsg": {
                     "description": "错误信息",
                     "type": "string"
@@ -5569,10 +5436,6 @@ const docTemplate = `{
                 },
                 "operUrl": {
                     "description": "请求URL",
-                    "type": "string"
-                },
-                "operatorType": {
-                    "description": "操作类别：web/app",
                     "type": "string"
                 },
                 "requestMethod": {
@@ -5701,13 +5564,14 @@ const docTemplate = `{
         "github_com_force-c_nai-tizi_internal_domain_request.CreateStorageEnvRequest": {
             "type": "object",
             "required": [
-                "config",
-                "envCode",
-                "envName",
-                "status",
+                "code",
+                "name",
                 "storageType"
             ],
             "properties": {
+                "code": {
+                    "type": "string"
+                },
                 "config": {
                     "description": "JSON 对象",
                     "type": "array",
@@ -5715,14 +5579,11 @@ const docTemplate = `{
                         "type": "integer"
                     }
                 },
-                "envCode": {
-                    "type": "string"
-                },
-                "envName": {
-                    "type": "string"
-                },
                 "isDefault": {
                     "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
                 },
                 "remark": {
                     "type": "string"
@@ -5736,22 +5597,22 @@ const docTemplate = `{
                     ]
                 },
                 "storageType": {
-                    "description": "存储类型：0本地 1MinIO 2S3 3OSS",
-                    "type": "integer",
+                    "description": "存储类型：local/minio/s3/oss",
+                    "type": "string",
                     "enum": [
-                        0,
-                        1,
-                        2,
-                        3
+                        "local",
+                        "minio",
+                        "s3",
+                        "oss"
                     ]
                 }
             }
         },
         "github_com_force-c_nai-tizi_internal_domain_request.CreateUserRequest": {
             "type": "object",
-                "required": [
-                "orgId",
+            "required": [
                 "nickName",
+                "orgId",
                 "password",
                 "userName"
             ],
@@ -5759,14 +5620,14 @@ const docTemplate = `{
                 "avatar": {
                     "type": "string"
                 },
-                "orgId": {
-                    "type": "integer"
-                },
                 "email": {
                     "type": "string"
                 },
                 "nickName": {
                     "type": "string"
+                },
+                "orgId": {
+                    "type": "integer"
                 },
                 "password": {
                     "type": "string",
@@ -5803,176 +5664,6 @@ const docTemplate = `{
                 "userType": {
                     "description": "用户类型：0系统用户 1微信用户 2APP用户",
                     "type": "integer"
-                }
-            }
-        },
-        "github_com_force-c_nai-tizi_internal_domain_request.ListConfigRequest": {
-            "type": "object",
-            "properties": {
-                "isAsc": {
-                    "description": "IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: \"asc,desc\"",
-                    "type": "string"
-                },
-                "name": {
-                    "description": "配置名称（可选，模糊查询）",
-                    "type": "string"
-                },
-                "orderByColumn": {
-                    "description": "OrderByColumn 排序列，支持多列排序，逗号分隔，如: \"id,createTime\"",
-                    "type": "string"
-                },
-                "pageNum": {
-                    "description": "PageNum 当前页码，从1开始",
-                    "type": "integer"
-                },
-                "pageSize": {
-                    "description": "PageSize 每页数量",
-                    "type": "integer"
-                },
-                "type": {
-                    "description": "配置类型（可选）",
-                    "type": "string"
-                }
-            }
-        },
-        "github_com_force-c_nai-tizi_internal_domain_request.ListOrgsRequest": {
-            "type": "object",
-            "properties": {
-                "isAsc": {
-                    "description": "IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: \"asc,desc\"",
-                    "type": "string"
-                },
-                "orderByColumn": {
-                    "description": "OrderByColumn 排序列，支持多列排序，逗号分隔，如: \"id,createTime\"",
-                    "type": "string"
-                },
-                "orgCode": {
-                    "description": "组织编码",
-                    "type": "string"
-                },
-                "orgName": {
-                    "description": "组织名称（模糊查询）",
-                    "type": "string"
-                },
-                "pageNum": {
-                    "description": "PageNum 当前页码，从1开始",
-                    "type": "integer"
-                },
-                "pageSize": {
-                    "description": "PageSize 每页数量",
-                    "type": "integer"
-                },
-                "parentId": {
-                    "description": "父组织ID（可选）",
-                    "type": "integer"
-                },
-                "status": {
-                    "description": "状态：0正常 1停用",
-                    "type": "integer",
-                    "enum": [
-                        0,
-                        1
-                    ]
-                }
-            }
-        },
-        "github_com_force-c_nai-tizi_internal_domain_request.ListRoleRequest": {
-            "type": "object",
-            "properties": {
-                "isAsc": {
-                    "description": "IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: \"asc,desc\"",
-                    "type": "string"
-                },
-                "orderByColumn": {
-                    "description": "OrderByColumn 排序列，支持多列排序，逗号分隔，如: \"id,createTime\"",
-                    "type": "string"
-                },
-                "pageNum": {
-                    "description": "PageNum 当前页码，从1开始",
-                    "type": "integer"
-                },
-                "pageSize": {
-                    "description": "PageSize 每页数量",
-                    "type": "integer"
-                },
-                "roleName": {
-                    "description": "角色名称（模糊查询）",
-                    "type": "string",
-                    "example": "管理员"
-                },
-                "status": {
-                    "description": "状态：0正常 1停用，-1表示不过滤",
-                    "type": "integer",
-                    "example": 0
-                }
-            }
-        },
-        "github_com_force-c_nai-tizi_internal_domain_request.ListStorageEnvsRequest": {
-            "type": "object",
-            "properties": {
-                "envName": {
-                    "type": "string"
-                },
-                "isAsc": {
-                    "description": "IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: \"asc,desc\"",
-                    "type": "string"
-                },
-                "orderByColumn": {
-                    "description": "OrderByColumn 排序列，支持多列排序，逗号分隔，如: \"id,createTime\"",
-                    "type": "string"
-                },
-                "pageNum": {
-                    "description": "PageNum 当前页码，从1开始",
-                    "type": "integer"
-                },
-                "pageSize": {
-                    "description": "PageSize 每页数量",
-                    "type": "integer"
-                },
-                "storageType": {
-                    "description": "存储类型：0本地 1MinIO 2S3 3OSS",
-                    "type": "integer",
-                    "enum": [
-                        0,
-                        1,
-                        2,
-                        3
-                    ]
-                }
-            }
-        },
-        "github_com_force-c_nai-tizi_internal_domain_request.ListUsersRequest": {
-            "type": "object",
-            "properties": {
-                "isAsc": {
-                    "description": "IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: \"asc,desc\"",
-                    "type": "string"
-                },
-                "orderByColumn": {
-                    "description": "OrderByColumn 排序列，支持多列排序，逗号分隔，如: \"id,createTime\"",
-                    "type": "string"
-                },
-                "pageNum": {
-                    "description": "PageNum 当前页码，从1开始",
-                    "type": "integer"
-                },
-                "pageSize": {
-                    "description": "PageSize 每页数量",
-                    "type": "integer"
-                },
-                "phonenumber": {
-                    "type": "string"
-                },
-                "status": {
-                    "description": "状态：0正常 1停用",
-                    "type": "integer",
-                    "enum": [
-                        0,
-                        1
-                    ]
-                },
-                "username": {
-                    "type": "string"
                 }
             }
         },
@@ -6069,6 +5760,221 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_force-c_nai-tizi_internal_domain_request.PageConfigRequest": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "配置编码(可选)",
+                    "type": "string"
+                },
+                "isAsc": {
+                    "description": "IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: \"asc,desc\"",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "配置名称(可选,模糊查询)",
+                    "type": "string"
+                },
+                "orderByColumn": {
+                    "description": "OrderByColumn 排序列，支持多列排序，逗号分隔，如: \"id,createTime\"",
+                    "type": "string"
+                },
+                "pageNum": {
+                    "description": "PageNum 当前页码，从1开始",
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "description": "PageSize 每页数量",
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_force-c_nai-tizi_internal_domain_request.PageOperLogRequest": {
+            "type": "object",
+            "properties": {
+                "businessType": {
+                    "description": "业务类型（可选）",
+                    "type": "string"
+                },
+                "endTime": {
+                    "description": "结束时间（可选）",
+                    "type": "string"
+                },
+                "isAsc": {
+                    "description": "IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: \"asc,desc\"",
+                    "type": "string"
+                },
+                "operName": {
+                    "description": "操作者（可选,模糊查询）",
+                    "type": "string"
+                },
+                "orderByColumn": {
+                    "description": "OrderByColumn 排序列，支持多列排序，逗号分隔，如: \"id,createTime\"",
+                    "type": "string"
+                },
+                "pageNum": {
+                    "description": "PageNum 当前页码，从1开始",
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "description": "PageSize 每页数量",
+                    "type": "integer"
+                },
+                "startTime": {
+                    "description": "开始时间（可选）",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "操作状态（可选,nil表示全部,\"0\"成功 \"1\"失败）",
+                    "type": "string"
+                },
+                "title": {
+                    "description": "模块标题（可选,模糊查询）",
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_force-c_nai-tizi_internal_domain_request.PageOrgsRequest": {
+            "type": "object",
+            "properties": {
+                "isAsc": {
+                    "description": "IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: \"asc,desc\"",
+                    "type": "string"
+                },
+                "orderByColumn": {
+                    "description": "OrderByColumn 排序列，支持多列排序，逗号分隔，如: \"id,createTime\"",
+                    "type": "string"
+                },
+                "orgCode": {
+                    "description": "组织编码",
+                    "type": "string"
+                },
+                "orgName": {
+                    "description": "组织名称（模糊查询）",
+                    "type": "string"
+                },
+                "pageNum": {
+                    "description": "PageNum 当前页码，从1开始",
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "description": "PageSize 每页数量",
+                    "type": "integer"
+                },
+                "parentId": {
+                    "description": "父组织ID（可选）",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "状态：0正常 1停用",
+                    "type": "integer",
+                    "enum": [
+                        0,
+                        1
+                    ]
+                }
+            }
+        },
+        "github_com_force-c_nai-tizi_internal_domain_request.PageRoleRequest": {
+            "type": "object",
+            "properties": {
+                "isAsc": {
+                    "description": "IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: \"asc,desc\"",
+                    "type": "string"
+                },
+                "orderByColumn": {
+                    "description": "OrderByColumn 排序列，支持多列排序，逗号分隔，如: \"id,createTime\"",
+                    "type": "string"
+                },
+                "pageNum": {
+                    "description": "PageNum 当前页码，从1开始",
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "description": "PageSize 每页数量",
+                    "type": "integer"
+                },
+                "roleName": {
+                    "description": "角色名称（模糊查询）",
+                    "type": "string",
+                    "example": "管理员"
+                },
+                "status": {
+                    "description": "状态：0正常 1停用，-1表示不过滤",
+                    "type": "integer",
+                    "example": 0
+                }
+            }
+        },
+        "github_com_force-c_nai-tizi_internal_domain_request.PageStorageEnvsRequest": {
+            "type": "object",
+            "properties": {
+                "isAsc": {
+                    "description": "IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: \"asc,desc\"",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "orderByColumn": {
+                    "description": "OrderByColumn 排序列，支持多列排序，逗号分隔，如: \"id,createTime\"",
+                    "type": "string"
+                },
+                "pageNum": {
+                    "description": "PageNum 当前页码，从1开始",
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "description": "PageSize 每页数量",
+                    "type": "integer"
+                },
+                "storageType": {
+                    "description": "存储类型：local/minio/s3/oss",
+                    "type": "string",
+                    "enum": [
+                        "local",
+                        "minio",
+                        "s3",
+                        "oss"
+                    ]
+                }
+            }
+        },
+        "github_com_force-c_nai-tizi_internal_domain_request.PageUsersRequest": {
+            "type": "object",
+            "properties": {
+                "isAsc": {
+                    "description": "IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: \"asc,desc\"",
+                    "type": "string"
+                },
+                "orderByColumn": {
+                    "description": "OrderByColumn 排序列，支持多列排序，逗号分隔，如: \"id,createTime\"",
+                    "type": "string"
+                },
+                "pageNum": {
+                    "description": "PageNum 当前页码，从1开始",
+                    "type": "integer"
+                },
+                "pageSize": {
+                    "description": "PageSize 每页数量",
+                    "type": "integer"
+                },
+                "phonenumber": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "状态：0正常 1停用",
+                    "type": "integer",
+                    "enum": [
+                        0,
+                        1
+                    ]
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_force-c_nai-tizi_internal_domain_request.ResetPasswordRequest": {
             "type": "object",
             "required": [
@@ -6081,61 +5987,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_force-c_nai-tizi_internal_domain_request.SendEmailCodeRequest": {
-            "type": "object",
-            "required": [
-                "email"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
-                }
-            }
-        },
-        "github_com_force-c_nai-tizi_internal_domain_request.SendSmsCodeRequest": {
-            "type": "object",
-            "required": [
-                "phonenumber"
-            ],
-            "properties": {
-                "phonenumber": {
-                    "type": "string"
-                }
-            }
-        },
         "github_com_force-c_nai-tizi_internal_domain_request.SetDefaultStorageEnvRequest": {
             "type": "object",
             "required": [
-                "envId"
+                "id"
             ],
             "properties": {
-                "envId": {
+                "id": {
                     "type": "integer"
-                }
-            }
-        },
-        "github_com_force-c_nai-tizi_internal_domain_request.SetRoleInheritRequest": {
-            "type": "object",
-            "required": [
-                "childRoleKey",
-                "orgId",
-                "parentRoleKey"
-            ],
-            "properties": {
-                "childRoleKey": {
-                    "description": "子角色标识",
-                    "type": "string",
-                    "example": "manager"
-                },
-                "orgId": {
-                    "description": "组织ID",
-                    "type": "integer",
-                    "example": 1
-                },
-                "parentRoleKey": {
-                    "description": "父角色标识",
-                    "type": "string",
-                    "example": "viewer"
                 }
             }
         },
@@ -6145,12 +6004,16 @@ const docTemplate = `{
         "github_com_force-c_nai-tizi_internal_domain_request.UpdateConfigRequest": {
             "type": "object",
             "required": [
+                "code",
                 "id",
                 "name",
-                "type",
                 "updateBy"
             ],
             "properties": {
+                "code": {
+                    "description": "配置编码",
+                    "type": "string"
+                },
                 "data": {
                     "description": "配置数据（JSON格式）",
                     "type": "array",
@@ -6168,10 +6031,6 @@ const docTemplate = `{
                 },
                 "remark": {
                     "description": "备注",
-                    "type": "string"
-                },
-                "type": {
-                    "description": "配置类型",
                     "type": "string"
                 },
                 "updateBy": {
@@ -6293,6 +6152,10 @@ const docTemplate = `{
                     "description": "耗时（毫秒）",
                     "type": "integer"
                 },
+                "deviceType": {
+                    "description": "终端类型：web/ios/android/wechat",
+                    "type": "string"
+                },
                 "errorMsg": {
                     "description": "错误信息",
                     "type": "string"
@@ -6327,10 +6190,6 @@ const docTemplate = `{
                 },
                 "operUrl": {
                     "description": "请求URL",
-                    "type": "string"
-                },
-                "operatorType": {
-                    "description": "操作类别：web/app",
                     "type": "string"
                 },
                 "requestMethod": {
@@ -6455,31 +6314,30 @@ const docTemplate = `{
         "github_com_force-c_nai-tizi_internal_domain_request.UpdateStorageEnvRequest": {
             "type": "object",
             "required": [
+                "code",
                 "config",
-                "envCode",
-                "envId",
-                "envName",
-                "status",
+                "id",
+                "name",
                 "storageType"
             ],
             "properties": {
+                "code": {
+                    "type": "string"
+                },
                 "config": {
                     "type": "array",
                     "items": {
                         "type": "integer"
                     }
                 },
-                "envCode": {
-                    "type": "string"
-                },
-                "envId": {
+                "id": {
                     "type": "integer"
-                },
-                "envName": {
-                    "type": "string"
                 },
                 "isDefault": {
                     "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
                 },
                 "remark": {
                     "type": "string"
@@ -6493,13 +6351,13 @@ const docTemplate = `{
                     ]
                 },
                 "storageType": {
-                    "description": "存储类型：0本地 1MinIO 2S3 3OSS",
-                    "type": "integer",
+                    "description": "存储类型：local/minio/s3/oss",
+                    "type": "string",
                     "enum": [
-                        0,
-                        1,
-                        2,
-                        3
+                        "local",
+                        "minio",
+                        "s3",
+                        "oss"
                     ]
                 }
             }
@@ -6510,14 +6368,14 @@ const docTemplate = `{
                 "avatar": {
                     "type": "string"
                 },
-                "orgId": {
-                    "type": "integer"
-                },
                 "email": {
                     "type": "string"
                 },
                 "nickName": {
                     "type": "string"
+                },
+                "orgId": {
+                    "type": "integer"
                 },
                 "phonenumber": {
                     "type": "string"
@@ -6631,38 +6489,26 @@ const docTemplate = `{
         "github_com_force-c_nai-tizi_internal_domain_response.ConfigDataResponse": {
             "type": "object",
             "properties": {
+                "code": {
+                    "description": "配置编码",
+                    "type": "string"
+                },
                 "data": {
                     "description": "配置数据",
                     "type": "array",
                     "items": {
                         "type": "integer"
                     }
-                },
-                "type": {
-                    "description": "配置类型",
-                    "type": "string"
-                }
-            }
-        },
-        "github_com_force-c_nai-tizi_internal_domain_response.ConfigListResponse": {
-            "type": "object",
-            "properties": {
-                "list": {
-                    "description": "列表",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_domain_response.ConfigResponse"
-                    }
-                },
-                "total": {
-                    "description": "总数",
-                    "type": "integer"
                 }
             }
         },
         "github_com_force-c_nai-tizi_internal_domain_response.ConfigResponse": {
             "type": "object",
             "properties": {
+                "code": {
+                    "description": "配置编码",
+                    "type": "string"
+                },
                 "createBy": {
                     "description": "创建者",
                     "type": "integer"
@@ -6688,10 +6534,6 @@ const docTemplate = `{
                 },
                 "remark": {
                     "description": "备注",
-                    "type": "string"
-                },
-                "type": {
-                    "description": "配置类型",
                     "type": "string"
                 },
                 "updateBy": {
@@ -6855,6 +6697,10 @@ const docTemplate = `{
                     "description": "耗时（毫秒）",
                     "type": "integer"
                 },
+                "deviceType": {
+                    "description": "终端类型：web/ios/android/wechat",
+                    "type": "string"
+                },
                 "errorMsg": {
                     "description": "错误信息",
                     "type": "string"
@@ -6893,10 +6739,6 @@ const docTemplate = `{
                 },
                 "operUrl": {
                     "description": "请求URL",
-                    "type": "string"
-                },
-                "operatorType": {
-                    "description": "操作类别：web/app",
                     "type": "string"
                 },
                 "requestMethod": {
@@ -7096,6 +6938,9 @@ const docTemplate = `{
         "github_com_force-c_nai-tizi_internal_domain_response.StorageEnvResponse": {
             "type": "object",
             "properties": {
+                "code": {
+                    "type": "string"
+                },
                 "config": {
                     "type": "array",
                     "items": {
@@ -7108,17 +6953,14 @@ const docTemplate = `{
                 "createdAt": {
                     "type": "string"
                 },
-                "envCode": {
-                    "type": "string"
-                },
-                "envId": {
+                "id": {
                     "type": "integer"
-                },
-                "envName": {
-                    "type": "string"
                 },
                 "isDefault": {
                     "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
                 },
                 "remark": {
                     "type": "string"
@@ -7128,8 +6970,8 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "storageType": {
-                    "description": "存储类型：0本地 1MinIO 2S3 3OSS",
-                    "type": "integer"
+                    "description": "存储类型：local/minio/s3/oss",
+                    "type": "string"
                 },
                 "updateBy": {
                     "type": "integer"
@@ -7248,6 +7090,53 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_force-c_nai-tizi_internal_infrastructure_captcha.CaptchaData": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "description": "验证码数据"
+                },
+                "expireAt": {
+                    "description": "过期时间",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "验证码ID",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "验证码类型",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_force-c_nai-tizi_internal_infrastructure_captcha.CaptchaType"
+                        }
+                    ]
+                }
+            }
+        },
+        "github_com_force-c_nai-tizi_internal_infrastructure_captcha.CaptchaType": {
+            "type": "string",
+            "enum": [
+                "image",
+                "sms",
+                "email"
+            ],
+            "x-enum-comments": {
+                "CaptchaTypeEmail": "邮箱验证码",
+                "CaptchaTypeImage": "图形验证码",
+                "CaptchaTypeSMS": "短信验证码"
+            },
+            "x-enum-descriptions": [
+                "图形验证码",
+                "短信验证码",
+                "邮箱验证码"
+            ],
+            "x-enum-varnames": [
+                "CaptchaTypeImage",
+                "CaptchaTypeSMS",
+                "CaptchaTypeEmail"
+            ]
+        },
         "github_com_force-c_nai-tizi_internal_service.MenuTree": {
             "type": "object",
             "properties": {
@@ -7337,26 +7226,43 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "services": {
-                    "description": "各服务状态",
                     "type": "object",
                     "additionalProperties": {
                         "type": "string"
                     }
                 },
                 "status": {
-                    "description": "healthy/unhealthy",
                     "type": "string"
                 },
                 "timestamp": {
-                    "description": "当前时间",
                     "type": "string"
                 },
                 "uptime": {
-                    "description": "运行时长",
                     "type": "string"
                 },
                 "version": {
-                    "description": "应用版本",
+                    "type": "string"
+                }
+            }
+        },
+        "internal_controller.SendEmailCaptchaRequest": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_controller.SendSMSCaptchaRequest": {
+            "type": "object",
+            "required": [
+                "phone"
+            ],
+            "properties": {
+                "phone": {
                     "type": "string"
                 }
             }
@@ -7388,7 +7294,7 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "localhost:9009",
 	BasePath:         "/",
 	Schemes:          []string{},
-	Title:            "智控猫 API 文档",
+	Title:            "NTZ API 文档",
 	Description:      "Nai-Tizi RESTful API 接口文档，支持双 Token 认证机制",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,

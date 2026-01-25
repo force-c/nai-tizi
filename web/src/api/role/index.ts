@@ -47,12 +47,4 @@ export const roleApi = {
   // 删除角色权限
   removePermission: (roleKey: string, resource: string, action: string) =>
     request.delete(`/api/v1/role/permission`, { params: { roleKey, resource, action } }),
-
-  // 设置角色继承
-  setInherit: (childRoleKey: string, parentRoleKey: string, orgId: number) =>
-    request.post(`/api/v1/role/inherit`, { childRoleKey, parentRoleKey, orgId }),
-
-  // 删除角色继承
-  removeInherit: (childRoleKey: string, parentRoleKey: string) =>
-    request.delete(`/api/v1/role/inherit`, { params: { childRoleKey, parentRoleKey } }),
 };

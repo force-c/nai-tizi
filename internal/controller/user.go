@@ -6,6 +6,7 @@ import (
 	"github.com/force-c/nai-tizi/internal/domain/response"
 	"github.com/force-c/nai-tizi/internal/service"
 	"github.com/force-c/nai-tizi/internal/utils"
+	_ "github.com/force-c/nai-tizi/internal/utils/pagination"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -291,7 +292,7 @@ func (h *userController) ResetPassword(c *gin.Context) {
 //	@Produce		json
 //	@Param			Authorization	header		string						true	"Bearer {token}"
 //	@Param			body			body		request.PageUsersRequest	true	"查询参数"
-//	@Success		200				{object}	response.Response{data=pagination.Page}
+//	@Success		200				{object}	response.Response{data=object}
 //	@Failure		400				{object}	response.Response	"参数错误"
 //	@Router			/api/v1/user/page [post]
 func (h *userController) PageUser(c *gin.Context) {

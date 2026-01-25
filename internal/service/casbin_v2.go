@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/casbin/casbin/v2"
@@ -41,21 +40,6 @@ type CasbinServiceV2 interface {
 
 	// GetPermissionsForRole 获取角色的所有权限（自动适配）
 	GetPermissionsForRole(ctx context.Context, roleKey string) ([][]string, error)
-
-	// SetRoleInherit 设置角色继承关系（自动适配）
-	SetRoleInherit(ctx context.Context, childRoleKey, parentRoleKey string) error
-
-	// DeleteRoleInherit 删除角色继承关系（自动适配）
-	DeleteRoleInherit(ctx context.Context, childRoleKey, parentRoleKey string) error
-
-	// GetRoleInherits 获取角色的所有父角色（自动适配）
-	GetRoleInherits(ctx context.Context, roleKey string) ([]string, error)
-
-	// CheckCircularInherit 检查是否存在循环继承（自动适配）
-	CheckCircularInherit(ctx context.Context, childRoleKey, parentRoleKey string) (bool, error)
-
-	// GetInheritDepth 获取角色继承深度（自动适配）
-	GetInheritDepth(ctx context.Context, roleKey string) (int, error)
 
 	// ReloadPolicy 重新加载策略（从数据库）
 	ReloadPolicy(ctx context.Context) error
@@ -326,155 +310,6 @@ func (s *casbinServiceV2) GetPermissionsForRole(ctx context.Context, roleKey str
 	}
 
 	return permissions, nil
-}
-
-// SetRoleInherit 设置角色继承关系（自动适配）
-func (s *casbinServiceV2) SetRoleInherit(ctx context.Context, childRoleKey, parentRoleKey string) error {
-	// 检查循环继承
-	circular, err := s.CheckCircularInherit(ctx, childRoleKey, parentRoleKey)
-	if err != nil {
-		return err
-	}
-	if circular {
-		return errors.New("检测到循环继承，无法设置")
-	}
-
-	// 检查继承深度
-	depth, err := s.GetInheritDepth(ctx, childRoleKey)
-	if err != nil {
-		return err
-	}
-	if depth >= 3 {
-		return errors.New("继承深度超过限制（最多3层）")
-	}
-
-	child := fmt.Sprintf("role::%s", childRoleKey)
-	parent := fmt.Sprintf("role::%s", parentRoleKey)
-
-	if s.multiTenantEnabled {
-		// 多租户模式
-		tenantId := s.getTenantId(ctx)
-		dom := fmt.Sprintf("tenant::%d", tenantId)
-		_, err = s.enforcer.AddGroupingPolicy(child, parent, dom)
-	} else {
-		// 单一企业模式
-		_, err = s.enforcer.AddGroupingPolicy(child, parent)
-	}
-
-	if err != nil {
-		return fmt.Errorf("设置角色继承失败: %w", err)
-	}
-
-	s.logger.Info("设置角色继承",
-		zap.String("childRole", childRoleKey),
-		zap.String("parentRole", parentRoleKey))
-
-	return nil
-}
-
-// DeleteRoleInherit 删除角色继承关系（自动适配）
-func (s *casbinServiceV2) DeleteRoleInherit(ctx context.Context, childRoleKey, parentRoleKey string) error {
-	child := fmt.Sprintf("role::%s", childRoleKey)
-	parent := fmt.Sprintf("role::%s", parentRoleKey)
-
-	var err error
-
-	if s.multiTenantEnabled {
-		// 多租户模式
-		tenantId := s.getTenantId(ctx)
-		dom := fmt.Sprintf("tenant::%d", tenantId)
-		_, err = s.enforcer.RemoveGroupingPolicy(child, parent, dom)
-	} else {
-		// 单一企业模式
-		_, err = s.enforcer.RemoveGroupingPolicy(child, parent)
-	}
-
-	if err != nil {
-		return fmt.Errorf("删除角色继承失败: %w", err)
-	}
-
-	return nil
-}
-
-// GetRoleInherits 获取角色的所有父角色（自动适配）
-func (s *casbinServiceV2) GetRoleInherits(ctx context.Context, roleKey string) ([]string, error) {
-	role := fmt.Sprintf("role::%s", roleKey)
-
-	var parents []string
-	var err error
-
-	if s.multiTenantEnabled {
-		// 多租户模式
-		tenantId := s.getTenantId(ctx)
-		dom := fmt.Sprintf("tenant::%d", tenantId)
-		parents = s.enforcer.GetRolesForUserInDomain(role, dom)
-	} else {
-		// 单一企业模式
-		parents, err = s.enforcer.GetRolesForUser(role)
-		if err != nil {
-			return nil, fmt.Errorf("获取角色继承失败: %w", err)
-		}
-	}
-
-	// 去除 "role::" 前缀
-	var result []string
-	for _, parent := range parents {
-		if len(parent) > 6 && parent[:6] == "role::" {
-			result = append(result, parent[6:])
-		}
-	}
-
-	return result, nil
-}
-
-// CheckCircularInherit 检查是否存在循环继承（自动适配）
-func (s *casbinServiceV2) CheckCircularInherit(ctx context.Context, childRoleKey, parentRoleKey string) (bool, error) {
-	// 如果父角色的祖先中包含子角色，则存在循环
-	ancestors, err := s.GetRoleInherits(ctx, parentRoleKey)
-	if err != nil {
-		return false, err
-	}
-
-	for _, ancestor := range ancestors {
-		if ancestor == childRoleKey {
-			return true, nil
-		}
-		// 递归检查
-		circular, err := s.CheckCircularInherit(ctx, childRoleKey, ancestor)
-		if err != nil {
-			return false, err
-		}
-		if circular {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
-// GetInheritDepth 获取角色继承深度（自动适配）
-func (s *casbinServiceV2) GetInheritDepth(ctx context.Context, roleKey string) (int, error) {
-	parents, err := s.GetRoleInherits(ctx, roleKey)
-	if err != nil {
-		return 0, err
-	}
-
-	if len(parents) == 0 {
-		return 0, nil
-	}
-
-	maxDepth := 0
-	for _, parent := range parents {
-		depth, err := s.GetInheritDepth(ctx, parent)
-		if err != nil {
-			return 0, err
-		}
-		if depth > maxDepth {
-			maxDepth = depth
-		}
-	}
-
-	return maxDepth + 1, nil
 }
 
 // ReloadPolicy 重新加载策略（从数据库）

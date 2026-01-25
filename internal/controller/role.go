@@ -9,6 +9,7 @@ import (
 	"github.com/force-c/nai-tizi/internal/domain/response"
 	"github.com/force-c/nai-tizi/internal/logger"
 	"github.com/force-c/nai-tizi/internal/service"
+	_ "github.com/force-c/nai-tizi/internal/utils/pagination"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -26,8 +27,6 @@ type RoleController interface {
 	AddRolePermission(ctx *gin.Context)    // 为角色添加权限
 	DeleteRolePermission(ctx *gin.Context) // 删除角色权限
 	GetRolePermissions(ctx *gin.Context)   // 获取角色的所有权限
-	SetRoleInherit(ctx *gin.Context)       // 设置角色继承
-	DeleteRoleInherit(ctx *gin.Context)    // 删除角色继承
 }
 
 type roleController struct {
@@ -191,8 +190,8 @@ func (c *roleController) GetRole(ctx *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			Authorization	header		string					true	"Bearer {token}"
-//	@Param			body			body		request.ListRoleRequest	true	"查询参数"
-//	@Success		200				{object}	response.Response{data=pagination.Page}
+//	@Param			body			body		request.PageRoleRequest	true	"查询参数"
+//	@Success		200				{object}	response.Response{data=object}
 //	@Router			/api/v1/role/page [post]
 func (c *roleController) PageRole(ctx *gin.Context) {
 	var req request.PageRoleRequest
@@ -388,56 +387,3 @@ func (c *roleController) GetRolePermissions(ctx *gin.Context) {
 	response.Success(ctx, permissions)
 }
 
-// SetRoleInherit 设置角色继承
-//
-//	@Summary		设置角色继承
-//	@Description	设置子角色继承父角色的所有权限
-//	@Tags			角色管理
-//	@Accept			json
-//	@Produce		json
-//	@Param			Authorization	header		string							true	"Bearer {token}"
-//	@Param			body			body		request.SetRoleInheritRequest	true	"继承信息"
-//	@Success		200				{object}	response.Response
-//	@Failure		400				{object}	response.Response	"参数错误"
-//	@Router			/api/v1/role/inherit [post]
-func (c *roleController) SetRoleInherit(ctx *gin.Context) {
-	var req request.SetRoleInheritRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(ctx, "参数错误: "+err.Error())
-		return
-	}
-
-	if err := c.roleService.SetRoleInherit(ctx.Request.Context(), req.ChildRoleKey, req.ParentRoleKey); err != nil {
-		c.logger.Error("设置角色继承失败", zap.Error(err))
-		response.InternalServerError(ctx, "设置角色继承失败: "+err.Error())
-		return
-	}
-
-	response.Success(ctx, nil)
-}
-
-// DeleteRoleInherit 删除角色继承
-//
-//	@Summary		删除角色继承
-//	@Description	删除子角色对父角色的继承关系
-//	@Tags			角色管理
-//	@Accept			json
-//	@Produce		json
-//	@Param			Authorization	header		string	true	"Bearer {token}"
-//	@Param			childRoleKey	query		string	true	"子角色标识"
-//	@Param			parentRoleKey	query		string	true	"父角色标识"
-//	@Success		200				{object}	response.Response
-//	@Failure		400				{object}	response.Response	"参数错误"
-//	@Router			/api/v1/role/inherit [delete]
-func (c *roleController) DeleteRoleInherit(ctx *gin.Context) {
-	childRoleKey := ctx.Query("childRoleKey")
-	parentRoleKey := ctx.Query("parentRoleKey")
-
-	if err := c.roleService.DeleteRoleInherit(ctx.Request.Context(), childRoleKey, parentRoleKey); err != nil {
-		c.logger.Error("删除角色继承失败", zap.Error(err))
-		response.InternalServerError(ctx, "删除角色继承失败: "+err.Error())
-		return
-	}
-
-	response.Success(ctx, nil)
-}

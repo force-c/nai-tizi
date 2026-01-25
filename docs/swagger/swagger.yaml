@@ -233,6 +233,9 @@ definitions:
     type: object
   github_com_force-c_nai-tizi_internal_domain_request.CreateConfigRequest:
     properties:
+      code:
+        description: 配置编码
+        type: string
       createBy:
         description: 创建者
         type: integer
@@ -247,16 +250,13 @@ definitions:
       remark:
         description: 备注
         type: string
-      type:
-        description: 配置类型
-        type: string
       updateBy:
         description: 更新者
         type: integer
     required:
+    - code
     - createBy
     - name
-    - type
     - updateBy
     type: object
   github_com_force-c_nai-tizi_internal_domain_request.CreateDictRequest:
@@ -336,6 +336,9 @@ definitions:
       costTime:
         description: 耗时（毫秒）
         type: integer
+      deviceType:
+        description: 终端类型：web/ios/android/wechat
+        type: string
       errorMsg:
         description: 错误信息
         type: string
@@ -359,9 +362,6 @@ definitions:
         type: string
       operUrl:
         description: 请求URL
-        type: string
-      operatorType:
-        description: 操作类别：web/app
         type: string
       requestMethod:
         description: 请求方式：GET/POST
@@ -461,17 +461,17 @@ definitions:
     type: object
   github_com_force-c_nai-tizi_internal_domain_request.CreateStorageEnvRequest:
     properties:
+      code:
+        type: string
       config:
         description: JSON 对象
         items:
           type: integer
         type: array
-      envCode:
-        type: string
-      envName:
-        type: string
       isDefault:
         type: boolean
+      name:
+        type: string
       remark:
         type: string
       status:
@@ -481,30 +481,28 @@ definitions:
         - 1
         type: integer
       storageType:
-        description: 存储类型：0本地 1MinIO 2S3 3OSS
+        description: 存储类型：local/minio/s3/oss
         enum:
-        - 0
-        - 1
-        - 2
-        - 3
-        type: integer
+        - local
+        - minio
+        - s3
+        - oss
+        type: string
     required:
-    - config
-    - envCode
-    - envName
-    - status
+    - code
+    - name
     - storageType
     type: object
   github_com_force-c_nai-tizi_internal_domain_request.CreateUserRequest:
     properties:
       avatar:
         type: string
-      deptId:
-        type: integer
       email:
         type: string
       nickName:
         type: string
+      orgId:
+        type: integer
       password:
         minLength: 6
         type: string
@@ -533,134 +531,10 @@ definitions:
         description: 用户类型：0系统用户 1微信用户 2APP用户
         type: integer
     required:
-    - deptId
     - nickName
+    - orgId
     - password
     - userName
-    type: object
-  github_com_force-c_nai-tizi_internal_domain_request.ListConfigRequest:
-    properties:
-      isAsc:
-        description: 'IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: "asc,desc"'
-        type: string
-      name:
-        description: 配置名称（可选，模糊查询）
-        type: string
-      orderByColumn:
-        description: 'OrderByColumn 排序列，支持多列排序，逗号分隔，如: "id,createTime"'
-        type: string
-      pageNum:
-        description: PageNum 当前页码，从1开始
-        type: integer
-      pageSize:
-        description: PageSize 每页数量
-        type: integer
-      type:
-        description: 配置类型（可选）
-        type: string
-    type: object
-  github_com_force-c_nai-tizi_internal_domain_request.ListOrgsRequest:
-    properties:
-      isAsc:
-        description: 'IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: "asc,desc"'
-        type: string
-      orderByColumn:
-        description: 'OrderByColumn 排序列，支持多列排序，逗号分隔，如: "id,createTime"'
-        type: string
-      orgCode:
-        description: 组织编码
-        type: string
-      orgName:
-        description: 组织名称（模糊查询）
-        type: string
-      pageNum:
-        description: PageNum 当前页码，从1开始
-        type: integer
-      pageSize:
-        description: PageSize 每页数量
-        type: integer
-      parentId:
-        description: 父组织ID（可选）
-        type: integer
-      status:
-        description: 状态：0正常 1停用
-        enum:
-        - 0
-        - 1
-        type: integer
-    type: object
-  github_com_force-c_nai-tizi_internal_domain_request.ListRoleRequest:
-    properties:
-      isAsc:
-        description: 'IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: "asc,desc"'
-        type: string
-      orderByColumn:
-        description: 'OrderByColumn 排序列，支持多列排序，逗号分隔，如: "id,createTime"'
-        type: string
-      pageNum:
-        description: PageNum 当前页码，从1开始
-        type: integer
-      pageSize:
-        description: PageSize 每页数量
-        type: integer
-      roleName:
-        description: 角色名称（模糊查询）
-        example: 管理员
-        type: string
-      status:
-        description: 状态：0正常 1停用，-1表示不过滤
-        example: 0
-        type: integer
-    type: object
-  github_com_force-c_nai-tizi_internal_domain_request.ListStorageEnvsRequest:
-    properties:
-      envName:
-        type: string
-      isAsc:
-        description: 'IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: "asc,desc"'
-        type: string
-      orderByColumn:
-        description: 'OrderByColumn 排序列，支持多列排序，逗号分隔，如: "id,createTime"'
-        type: string
-      pageNum:
-        description: PageNum 当前页码，从1开始
-        type: integer
-      pageSize:
-        description: PageSize 每页数量
-        type: integer
-      storageType:
-        description: 存储类型：0本地 1MinIO 2S3 3OSS
-        enum:
-        - 0
-        - 1
-        - 2
-        - 3
-        type: integer
-    type: object
-  github_com_force-c_nai-tizi_internal_domain_request.ListUsersRequest:
-    properties:
-      isAsc:
-        description: 'IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: "asc,desc"'
-        type: string
-      orderByColumn:
-        description: 'OrderByColumn 排序列，支持多列排序，逗号分隔，如: "id,createTime"'
-        type: string
-      pageNum:
-        description: PageNum 当前页码，从1开始
-        type: integer
-      pageSize:
-        description: PageSize 每页数量
-        type: integer
-      phonenumber:
-        type: string
-      status:
-        description: 状态：0正常 1停用
-        enum:
-        - 0
-        - 1
-        type: integer
-      username:
-        type: string
     type: object
   github_com_force-c_nai-tizi_internal_domain_request.LoginRequest:
     description: 统一登录请求参数，根据 grantType 使用不同的字段组合
@@ -733,6 +607,163 @@ definitions:
     - pageNum
     - pageSize
     type: object
+  github_com_force-c_nai-tizi_internal_domain_request.PageConfigRequest:
+    properties:
+      code:
+        description: 配置编码(可选)
+        type: string
+      isAsc:
+        description: 'IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: "asc,desc"'
+        type: string
+      name:
+        description: 配置名称(可选,模糊查询)
+        type: string
+      orderByColumn:
+        description: 'OrderByColumn 排序列，支持多列排序，逗号分隔，如: "id,createTime"'
+        type: string
+      pageNum:
+        description: PageNum 当前页码，从1开始
+        type: integer
+      pageSize:
+        description: PageSize 每页数量
+        type: integer
+    type: object
+  github_com_force-c_nai-tizi_internal_domain_request.PageOperLogRequest:
+    properties:
+      businessType:
+        description: 业务类型（可选）
+        type: string
+      endTime:
+        description: 结束时间（可选）
+        type: string
+      isAsc:
+        description: 'IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: "asc,desc"'
+        type: string
+      operName:
+        description: 操作者（可选,模糊查询）
+        type: string
+      orderByColumn:
+        description: 'OrderByColumn 排序列，支持多列排序，逗号分隔，如: "id,createTime"'
+        type: string
+      pageNum:
+        description: PageNum 当前页码，从1开始
+        type: integer
+      pageSize:
+        description: PageSize 每页数量
+        type: integer
+      startTime:
+        description: 开始时间（可选）
+        type: string
+      status:
+        description: 操作状态（可选,nil表示全部,"0"成功 "1"失败）
+        type: string
+      title:
+        description: 模块标题（可选,模糊查询）
+        type: string
+    type: object
+  github_com_force-c_nai-tizi_internal_domain_request.PageOrgsRequest:
+    properties:
+      isAsc:
+        description: 'IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: "asc,desc"'
+        type: string
+      orderByColumn:
+        description: 'OrderByColumn 排序列，支持多列排序，逗号分隔，如: "id,createTime"'
+        type: string
+      orgCode:
+        description: 组织编码
+        type: string
+      orgName:
+        description: 组织名称（模糊查询）
+        type: string
+      pageNum:
+        description: PageNum 当前页码，从1开始
+        type: integer
+      pageSize:
+        description: PageSize 每页数量
+        type: integer
+      parentId:
+        description: 父组织ID（可选）
+        type: integer
+      status:
+        description: 状态：0正常 1停用
+        enum:
+        - 0
+        - 1
+        type: integer
+    type: object
+  github_com_force-c_nai-tizi_internal_domain_request.PageRoleRequest:
+    properties:
+      isAsc:
+        description: 'IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: "asc,desc"'
+        type: string
+      orderByColumn:
+        description: 'OrderByColumn 排序列，支持多列排序，逗号分隔，如: "id,createTime"'
+        type: string
+      pageNum:
+        description: PageNum 当前页码，从1开始
+        type: integer
+      pageSize:
+        description: PageSize 每页数量
+        type: integer
+      roleName:
+        description: 角色名称（模糊查询）
+        example: 管理员
+        type: string
+      status:
+        description: 状态：0正常 1停用，-1表示不过滤
+        example: 0
+        type: integer
+    type: object
+  github_com_force-c_nai-tizi_internal_domain_request.PageStorageEnvsRequest:
+    properties:
+      isAsc:
+        description: 'IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: "asc,desc"'
+        type: string
+      name:
+        type: string
+      orderByColumn:
+        description: 'OrderByColumn 排序列，支持多列排序，逗号分隔，如: "id,createTime"'
+        type: string
+      pageNum:
+        description: PageNum 当前页码，从1开始
+        type: integer
+      pageSize:
+        description: PageSize 每页数量
+        type: integer
+      storageType:
+        description: 存储类型：local/minio/s3/oss
+        enum:
+        - local
+        - minio
+        - s3
+        - oss
+        type: string
+    type: object
+  github_com_force-c_nai-tizi_internal_domain_request.PageUsersRequest:
+    properties:
+      isAsc:
+        description: 'IsAsc 排序方向，asc或desc，支持多个，逗号分隔，如: "asc,desc"'
+        type: string
+      orderByColumn:
+        description: 'OrderByColumn 排序列，支持多列排序，逗号分隔，如: "id,createTime"'
+        type: string
+      pageNum:
+        description: PageNum 当前页码，从1开始
+        type: integer
+      pageSize:
+        description: PageSize 每页数量
+        type: integer
+      phonenumber:
+        type: string
+      status:
+        description: 状态：0正常 1停用
+        enum:
+        - 0
+        - 1
+        type: integer
+      username:
+        type: string
+    type: object
   github_com_force-c_nai-tizi_internal_domain_request.ResetPasswordRequest:
     properties:
       newPassword:
@@ -741,50 +772,20 @@ definitions:
     required:
     - newPassword
     type: object
-  github_com_force-c_nai-tizi_internal_domain_request.SendEmailCodeRequest:
-    properties:
-      email:
-        type: string
-    required:
-    - email
-    type: object
-  github_com_force-c_nai-tizi_internal_domain_request.SendSmsCodeRequest:
-    properties:
-      phonenumber:
-        type: string
-    required:
-    - phonenumber
-    type: object
   github_com_force-c_nai-tizi_internal_domain_request.SetDefaultStorageEnvRequest:
     properties:
-      envId:
+      id:
         type: integer
     required:
-    - envId
-    type: object
-  github_com_force-c_nai-tizi_internal_domain_request.SetRoleInheritRequest:
-    properties:
-      childRoleKey:
-        description: 子角色标识
-        example: manager
-        type: string
-      orgId:
-        description: 组织ID
-        example: 1
-        type: integer
-      parentRoleKey:
-        description: 父角色标识
-        example: viewer
-        type: string
-    required:
-    - childRoleKey
-    - orgId
-    - parentRoleKey
+    - id
     type: object
   github_com_force-c_nai-tizi_internal_domain_request.TestStorageEnvConnectionRequest:
     type: object
   github_com_force-c_nai-tizi_internal_domain_request.UpdateConfigRequest:
     properties:
+      code:
+        description: 配置编码
+        type: string
       data:
         description: 配置数据（JSON格式）
         items:
@@ -799,16 +800,13 @@ definitions:
       remark:
         description: 备注
         type: string
-      type:
-        description: 配置类型
-        type: string
       updateBy:
         description: 更新者
         type: integer
     required:
+    - code
     - id
     - name
-    - type
     - updateBy
     type: object
   github_com_force-c_nai-tizi_internal_domain_request.UpdateDictRequest:
@@ -892,6 +890,9 @@ definitions:
       costTime:
         description: 耗时（毫秒）
         type: integer
+      deviceType:
+        description: 终端类型：web/ios/android/wechat
+        type: string
       errorMsg:
         description: 错误信息
         type: string
@@ -918,9 +919,6 @@ definitions:
         type: string
       operUrl:
         description: 请求URL
-        type: string
-      operatorType:
-        description: 操作类别：web/app
         type: string
       requestMethod:
         description: 请求方式：GET/POST
@@ -1017,18 +1015,18 @@ definitions:
     type: object
   github_com_force-c_nai-tizi_internal_domain_request.UpdateStorageEnvRequest:
     properties:
+      code:
+        type: string
       config:
         items:
           type: integer
         type: array
-      envCode:
-        type: string
-      envId:
+      id:
         type: integer
-      envName:
-        type: string
       isDefault:
         type: boolean
+      name:
+        type: string
       remark:
         type: string
       status:
@@ -1038,31 +1036,30 @@ definitions:
         - 1
         type: integer
       storageType:
-        description: 存储类型：0本地 1MinIO 2S3 3OSS
+        description: 存储类型：local/minio/s3/oss
         enum:
-        - 0
-        - 1
-        - 2
-        - 3
-        type: integer
+        - local
+        - minio
+        - s3
+        - oss
+        type: string
     required:
+    - code
     - config
-    - envCode
-    - envId
-    - envName
-    - status
+    - id
+    - name
     - storageType
     type: object
   github_com_force-c_nai-tizi_internal_domain_request.UpdateUserRequest:
     properties:
       avatar:
         type: string
-      deptId:
-        type: integer
       email:
         type: string
       nickName:
         type: string
+      orgId:
+        type: integer
       phonenumber:
         type: string
       remark:
@@ -1140,28 +1137,20 @@ definitions:
     type: object
   github_com_force-c_nai-tizi_internal_domain_response.ConfigDataResponse:
     properties:
+      code:
+        description: 配置编码
+        type: string
       data:
         description: 配置数据
         items:
           type: integer
         type: array
-      type:
-        description: 配置类型
-        type: string
-    type: object
-  github_com_force-c_nai-tizi_internal_domain_response.ConfigListResponse:
-    properties:
-      list:
-        description: 列表
-        items:
-          $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.ConfigResponse'
-        type: array
-      total:
-        description: 总数
-        type: integer
     type: object
   github_com_force-c_nai-tizi_internal_domain_response.ConfigResponse:
     properties:
+      code:
+        description: 配置编码
+        type: string
       createBy:
         description: 创建者
         type: integer
@@ -1181,9 +1170,6 @@ definitions:
         type: string
       remark:
         description: 备注
-        type: string
-      type:
-        description: 配置类型
         type: string
       updateBy:
         description: 更新者
@@ -1302,6 +1288,9 @@ definitions:
       costTime:
         description: 耗时（毫秒）
         type: integer
+      deviceType:
+        description: 终端类型：web/ios/android/wechat
+        type: string
       errorMsg:
         description: 错误信息
         type: string
@@ -1331,9 +1320,6 @@ definitions:
         type: string
       operUrl:
         description: 请求URL
-        type: string
-      operatorType:
-        description: 操作类别：web/app
         type: string
       requestMethod:
         description: 请求方式：GET/POST
@@ -1485,6 +1471,8 @@ definitions:
     type: object
   github_com_force-c_nai-tizi_internal_domain_response.StorageEnvResponse:
     properties:
+      code:
+        type: string
       config:
         items:
           type: integer
@@ -1493,22 +1481,20 @@ definitions:
         type: integer
       createdAt:
         type: string
-      envCode:
-        type: string
-      envId:
+      id:
         type: integer
-      envName:
-        type: string
       isDefault:
         type: boolean
+      name:
+        type: string
       remark:
         type: string
       status:
         description: 状态：0正常 1停用
         type: integer
       storageType:
-        description: 存储类型：0本地 1MinIO 2S3 3OSS
-        type: integer
+        description: 存储类型：local/minio/s3/oss
+        type: string
       updateBy:
         type: integer
       updatedAt:
@@ -1592,6 +1578,39 @@ definitions:
         description: 用户类型：0系统用户 1微信用户 2APP用户
         type: integer
     type: object
+  github_com_force-c_nai-tizi_internal_infrastructure_captcha.CaptchaData:
+    properties:
+      data:
+        description: 验证码数据
+      expireAt:
+        description: 过期时间
+        type: string
+      id:
+        description: 验证码ID
+        type: string
+      type:
+        allOf:
+        - $ref: '#/definitions/github_com_force-c_nai-tizi_internal_infrastructure_captcha.CaptchaType'
+        description: 验证码类型
+    type: object
+  github_com_force-c_nai-tizi_internal_infrastructure_captcha.CaptchaType:
+    enum:
+    - image
+    - sms
+    - email
+    type: string
+    x-enum-comments:
+      CaptchaTypeEmail: 邮箱验证码
+      CaptchaTypeImage: 图形验证码
+      CaptchaTypeSMS: 短信验证码
+    x-enum-descriptions:
+    - 图形验证码
+    - 短信验证码
+    - 邮箱验证码
+    x-enum-varnames:
+    - CaptchaTypeImage
+    - CaptchaTypeSMS
+    - CaptchaTypeEmail
   github_com_force-c_nai-tizi_internal_service.MenuTree:
     properties:
       children:
@@ -1659,20 +1678,29 @@ definitions:
       services:
         additionalProperties:
           type: string
-        description: 各服务状态
         type: object
       status:
-        description: healthy/unhealthy
         type: string
       timestamp:
-        description: 当前时间
         type: string
       uptime:
-        description: 运行时长
         type: string
       version:
-        description: 应用版本
         type: string
+    type: object
+  internal_controller.SendEmailCaptchaRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  internal_controller.SendSMSCaptchaRequest:
+    properties:
+      phone:
+        type: string
+    required:
+    - phone
     type: object
 host: localhost:9009
 info:
@@ -1680,12 +1708,12 @@ info:
     email: support@example.com
     name: 技术支持
     url: https://example.com/support
-  description: 智控猫后端 RESTful API 接口文档，支持双 Token 认证机制
+  description: Nai-Tizi RESTful API 接口文档，支持双 Token 认证机制
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
   termsOfService: https://example.com/terms/
-  title: 智控猫 API 文档
+  title: NTZ API 文档
   version: "1.0"
 paths:
   /api/v1/attachment/{attachmentId}:
@@ -2104,89 +2132,16 @@ paths:
       summary: 批量删除配置
       tags:
       - 配置管理
-  /api/v1/config/data:
+  /api/v1/config/code:
     get:
       consumes:
       - application/json
-      description: 根据配置类型获取配置的data字段（JSON格式），返回第一个匹配的配置
+      description: 根据配置编码获取配置列表
       parameters:
-      - description: 配置类型
+      - description: 配置编码
         example: '"system_settings"'
         in: query
-        name: type
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 查询成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.ConfigDataResponse'
-              type: object
-        "400":
-          description: 请求参数错误
-          schema:
-            $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
-        "500":
-          description: 服务器内部错误
-          schema:
-            $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
-      summary: 根据类型获取配置数据
-      tags:
-      - 配置管理
-  /api/v1/config/page:
-    post:
-      consumes:
-      - application/json
-      description: 使用 Paginator 分页查询配置列表，支持按类型、名称筛选
-      parameters:
-      - description: Bearer {token}
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: 查询参数
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_request.ListConfigRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 查询成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.ConfigListResponse'
-              type: object
-        "400":
-          description: 请求参数错误
-          schema:
-            $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
-      security:
-      - Bearer: []
-      summary: 分页查询配置列表
-      tags:
-      - 配置管理
-  /api/v1/config/type:
-    get:
-      consumes:
-      - application/json
-      description: 根据配置类型获取配置列表
-      parameters:
-      - description: 配置类型
-        example: '"system_settings"'
-        in: query
-        name: type
+        name: code
         required: true
         type: string
       produces:
@@ -2211,7 +2166,80 @@ paths:
           description: 服务器内部错误
           schema:
             $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
-      summary: 根据类型获取配置列表
+      summary: 根据编码获取配置列表
+      tags:
+      - 配置管理
+  /api/v1/config/data:
+    get:
+      consumes:
+      - application/json
+      description: 根据配置编码获取配置的data字段（JSON格式），返回第一个匹配的配置
+      parameters:
+      - description: 配置编码
+        example: '"system_settings"'
+        in: query
+        name: code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 查询成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.ConfigDataResponse'
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
+      summary: 根据编码获取配置数据
+      tags:
+      - 配置管理
+  /api/v1/config/page:
+    post:
+      consumes:
+      - application/json
+      description: 使用 Paginator 分页查询配置列表，支持按类型、名称筛选
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: 查询参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_request.PageConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 查询成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
+      security:
+      - Bearer: []
+      summary: 分页查询配置列表
       tags:
       - 配置管理
   /api/v1/dict:
@@ -3069,6 +3097,38 @@ paths:
       summary: 清理操作日志
       tags:
       - 操作日志
+  /api/v1/operLog/page:
+    post:
+      consumes:
+      - application/json
+      description: 分页查询操作日志列表，支持按标题、操作者、业务类型、状态、时间范围筛选
+      parameters:
+      - description: 查询参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_request.PageOperLogRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 查询成功
+          schema:
+            $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
+      security:
+      - Bearer: []
+      summary: 分页查询操作日志列表
+      tags:
+      - 操作日志
   /api/v1/org:
     post:
       consumes:
@@ -3329,7 +3389,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_request.ListOrgsRequest'
+          $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_request.PageOrgsRequest'
       produces:
       - application/json
       responses:
@@ -3340,7 +3400,7 @@ paths:
             - $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.PageResponse'
+                  type: object
               type: object
         "400":
           description: 参数错误
@@ -3550,71 +3610,6 @@ paths:
       summary: 为用户分配角色
       tags:
       - 角色管理
-  /api/v1/role/inherit:
-    delete:
-      consumes:
-      - application/json
-      description: 删除子角色对父角色的继承关系
-      parameters:
-      - description: Bearer {token}
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: 子角色标识
-        in: query
-        name: childRoleKey
-        required: true
-        type: string
-      - description: 父角色标识
-        in: query
-        name: parentRoleKey
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
-        "400":
-          description: 参数错误
-          schema:
-            $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
-      summary: 删除角色继承
-      tags:
-      - 角色管理
-    post:
-      consumes:
-      - application/json
-      description: 设置子角色继承父角色的所有权限
-      parameters:
-      - description: Bearer {token}
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      - description: 继承信息
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_request.SetRoleInheritRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
-        "400":
-          description: 参数错误
-          schema:
-            $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
-      summary: 设置角色继承
-      tags:
-      - 角色管理
   /api/v1/role/page:
     post:
       consumes:
@@ -3631,7 +3626,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_request.ListRoleRequest'
+          $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_request.PageRoleRequest'
       produces:
       - application/json
       responses:
@@ -3642,7 +3637,7 @@ paths:
             - $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.PageResponse'
+                  type: object
               type: object
       summary: 分页查询角色列表
       tags:
@@ -3884,7 +3879,7 @@ paths:
       summary: 更新存储环境
       tags:
       - 存储环境管理
-  /api/v1/storage-env/{envId}:
+  /api/v1/storage-env/{id}:
     delete:
       consumes:
       - application/json
@@ -3897,7 +3892,7 @@ paths:
         type: string
       - description: 环境ID
         in: path
-        name: envId
+        name: id
         required: true
         type: integer
       produces:
@@ -3922,7 +3917,7 @@ paths:
         type: string
       - description: 环境ID
         in: path
-        name: envId
+        name: id
         required: true
         type: integer
       produces:
@@ -3940,7 +3935,7 @@ paths:
       summary: 获取存储环境详情
       tags:
       - 存储环境管理
-  /api/v1/storage-env/{envId}/test:
+  /api/v1/storage-env/{id}/test:
     post:
       consumes:
       - application/json
@@ -3953,7 +3948,7 @@ paths:
         type: string
       - description: 环境ID
         in: path
-        name: envId
+        name: id
         required: true
         type: integer
       - description: 测试参数
@@ -4039,7 +4034,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_request.ListStorageEnvsRequest'
+          $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_request.PageStorageEnvsRequest'
       produces:
       - application/json
       responses:
@@ -4050,7 +4045,7 @@ paths:
             - $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.PageResponse'
+                  type: object
               type: object
       summary: 分页查询存储环境列表
       tags:
@@ -4161,11 +4156,10 @@ paths:
         in: query
         name: ipaddr
         type: string
-      - description: 登录状态：0成功 1失败 -1全部
+      - description: 登录状态：0成功 1失败，不传或null表示全部
         enum:
         - 0
         - 1
-        - -1
         in: query
         name: status
         type: integer
@@ -4199,87 +4193,6 @@ paths:
       summary: 分页查询登录日志列表
       tags:
       - 登录日志
-  /api/v1/system/operLog/page:
-    get:
-      consumes:
-      - application/json
-      description: 分页查询操作日志列表，支持按标题、操作者、业务类型、状态、时间范围筛选
-      parameters:
-      - description: 页码
-        in: query
-        minimum: 1
-        name: pageNum
-        required: true
-        type: integer
-      - description: 每页数量
-        in: query
-        minimum: 1
-        name: pageSize
-        required: true
-        type: integer
-      - description: 排序列
-        example: '"operTime"'
-        in: query
-        name: orderByColumn
-        type: string
-      - description: 排序方向
-        enum:
-        - asc
-        - desc
-        example: '"desc"'
-        in: query
-        name: isAsc
-        type: string
-      - description: 模块标题（模糊查询）
-        in: query
-        name: title
-        type: string
-      - description: 操作者（模糊查询）
-        in: query
-        name: operName
-        type: string
-      - description: 业务类型
-        in: query
-        name: businessType
-        type: string
-      - description: 操作状态：0成功 1失败 -1全部
-        enum:
-        - "0"
-        - "1"
-        - "-1"
-        in: query
-        name: status
-        type: string
-      - description: 开始时间
-        example: '"2024-01-01 00:00:00"'
-        in: query
-        name: startTime
-        type: string
-      - description: 结束时间
-        example: '"2024-12-31 23:59:59"'
-        in: query
-        name: endTime
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 查询成功
-          schema:
-            $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
-        "400":
-          description: 请求参数错误
-          schema:
-            $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
-        "500":
-          description: 服务器内部错误
-          schema:
-            $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
-      security:
-      - Bearer: []
-      summary: 分页查询操作日志列表
-      tags:
-      - 操作日志
   /api/v1/user:
     post:
       consumes:
@@ -4534,7 +4447,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_request.ListUsersRequest'
+          $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_request.PageUsersRequest'
       produces:
       - application/json
       responses:
@@ -4545,7 +4458,7 @@ paths:
             - $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.PageResponse'
+                  type: object
               type: object
         "400":
           description: 参数错误
@@ -4585,46 +4498,6 @@ paths:
       summary: 用户修改密码
       tags:
       - 用户管理
-  /auth/email:
-    post:
-      consumes:
-      - application/json
-      description: 向指定邮箱发送验证码，用于邮箱登录
-      parameters:
-      - description: 邮箱地址
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_request.SendEmailCodeRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
-            - properties:
-                data:
-                  properties:
-                    code:
-                      type: string
-                    message:
-                      type: string
-                  type: object
-              type: object
-        "400":
-          description: 邮箱格式错误
-          schema:
-            $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
-        "403":
-          description: 邮箱验证码功能未启用
-          schema:
-            $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
-      summary: 发送邮箱验证码
-      tags:
-      - 认证
   /auth/refresh:
     post:
       consumes:
@@ -4660,18 +4533,17 @@ paths:
       summary: 刷新访问令牌
       tags:
       - 认证
-  /auth/sms:
+  /captcha/email:
     post:
       consumes:
       - application/json
-      description: 向指定手机号发送短信验证码，用于手机号登录
       parameters:
-      - description: 手机号
+      - description: 邮箱
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_request.SendSmsCodeRequest'
+          $ref: '#/definitions/internal_controller.SendEmailCaptchaRequest'
       produces:
       - application/json
       responses:
@@ -4682,22 +4554,75 @@ paths:
             - $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
             - properties:
                 data:
-                  properties:
-                    message:
-                      type: string
-                  type: object
+                  $ref: '#/definitions/github_com_force-c_nai-tizi_internal_infrastructure_captcha.CaptchaData'
               type: object
-        "400":
-          description: 手机号格式错误
+      summary: 发送邮箱验证码
+      tags:
+      - 验证码
+  /captcha/image:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
           schema:
-            $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
-        "403":
-          description: 短信验证码功能未启用
+            allOf:
+            - $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_force-c_nai-tizi_internal_infrastructure_captcha.CaptchaData'
+              type: object
+      summary: 生成图形验证码
+      tags:
+      - 验证码
+  /captcha/sms:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 手机号
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_controller.SendSMSCaptchaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
           schema:
-            $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
+            allOf:
+            - $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_force-c_nai-tizi_internal_infrastructure_captcha.CaptchaData'
+              type: object
       summary: 发送短信验证码
       tags:
-      - 认证
+      - 验证码
+  /captcha/types:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_force-c_nai-tizi_internal_domain_response.Response'
+            - properties:
+                data:
+                  items:
+                    type: string
+                  type: array
+              type: object
+      summary: 获取已启用的验证码类型
+      tags:
+      - 验证码
   /health:
     get:
       description: 检查服务是否正常运行

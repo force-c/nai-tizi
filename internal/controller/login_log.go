@@ -7,6 +7,7 @@ import (
 	"github.com/force-c/nai-tizi/internal/domain/request"
 	"github.com/force-c/nai-tizi/internal/domain/response"
 	"github.com/force-c/nai-tizi/internal/service"
+	_ "github.com/force-c/nai-tizi/internal/utils/pagination"
 	"github.com/gin-gonic/gin"
 )
 

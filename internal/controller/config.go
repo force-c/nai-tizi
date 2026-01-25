@@ -7,6 +7,7 @@ import (
 	"github.com/force-c/nai-tizi/internal/domain/request"
 	"github.com/force-c/nai-tizi/internal/domain/response"
 	"github.com/force-c/nai-tizi/internal/service"
+	_ "github.com/force-c/nai-tizi/internal/utils/pagination"
 	"github.com/gin-gonic/gin"
 )
 
@@ -186,7 +187,7 @@ func (c *configController) GetConfigById(ctx *gin.Context) {
 //	@Produce		json
 //	@Param			Authorization	header		string						true	"Bearer {token}"
 //	@Param			body			body		request.PageConfigRequest	true	"查询参数"
-//	@Success		200				{object}	response.Response{data=pagination.Page}	"查询成功"
+//	@Success		200				{object}	response.Response{data=object}	"查询成功"
 //	@Failure		400				{object}	response.Response			"请求参数错误"
 //	@Router			/api/v1/config/page [post]
 //	@Security		Bearer

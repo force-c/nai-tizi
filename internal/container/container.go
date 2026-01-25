@@ -198,7 +198,6 @@ func (c *container) initDB() error {
 	// 	&model.BuMessageRetryLog{},
 	// 	// RBAC 相关表
 	// 	&model.Role{},
-	// 	&model.RoleInherit{},
 	// 	&model.Org{},
 	// 	&model.Menu{},
 	// 	&model.UserRole{},

@@ -10,7 +10,6 @@ const (
 	ResourceRoleDelete     = "role.delete"
 	ResourceRoleAssign     = "role.assign"
 	ResourceRolePermission = "role.permission"
-	ResourceRoleInherit    = "role.inherit"
 
 	// 用户管理
 	ResourceUser       = "user"

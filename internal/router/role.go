@@ -32,10 +32,6 @@ func registerRoleRoutes(r *gin.Engine, ctx *RouterContext) {
 		roles.DELETE("/permission", middleware.Permission(ctx.CasbinService, constants.ResourceRolePermission), roleController.DeleteRolePermission)
 		roles.GET("/permissions", middleware.Permission(ctx.CasbinService, constants.ResourceRolePermission), roleController.GetRolePermissions)
 
-		// 角色继承管理 - 需要 role.inherit 权限（高级权限）
-		roles.POST("/inherit", middleware.Permission(ctx.CasbinService, constants.ResourceRoleInherit), roleController.SetRoleInherit)
-		roles.DELETE("/inherit", middleware.Permission(ctx.CasbinService, constants.ResourceRoleInherit), roleController.DeleteRoleInherit)
-
 		// 角色更新、查询和删除 - 需要 role.update/read/delete 权限（带参数的路由放在最后）
 		roles.PUT("/:roleId", middleware.Permission(ctx.CasbinService, constants.ResourceRoleUpdate), roleController.UpdateRole)
 		roles.GET("/:roleId", middleware.Permission(ctx.CasbinService, constants.ResourceRoleRead), roleController.GetRole)
