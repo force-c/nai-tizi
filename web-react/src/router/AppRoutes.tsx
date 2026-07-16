@@ -27,8 +27,7 @@ function normalizeComponentPath(component?: string) {
 
   return component
     .replace(/^\/?src\/views\//, '')
-    .replace(/^\//, '')
-    .replace(/\.vue$/, '');
+    .replace(/^\//, '');
 }
 
 function resolvePageComponent(menu: MenuRouteRecord): LazyExoticComponent<() => JSX.Element> {

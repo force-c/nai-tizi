@@ -5,7 +5,7 @@
 在 `kratos/` 目录下基于 Kratos 框架实现一套全新的后端，同时保持以下原则：
 
 - `native/` 作为业务基线和只读参考，不直接修改。
-- `web/` 尽量保持零改动可用。
+- `web-react/` 尽量保持零改动可用。
 - `sys-api` 作为对外 HTTP 服务。
 - `sys-rpc` 作为对内 gRPC 服务，承接核心业务逻辑和数据库访问。
 
@@ -40,7 +40,7 @@ kratos/
 
 职责：
 
-- 向 `web/` 暴露 HTTP 接口。
+- 向 `web-react/` 暴露 HTTP 接口。
 - 解析请求参数。
 - 把响应包装成兼容 `native` 的 HTTP 返回结构。
 - 处理 token、鉴权、缓存、HTTP 中间件等外层能力。
@@ -66,7 +66,7 @@ kratos/
 
 - `api/system/v1/*.proto` 同时定义 HTTP 和 gRPC 契约。
 - HTTP 路径、方法、请求字段、返回字段都要尽量与 `native/` 对齐。
-- 除非 `web/` 本身偏离 `native/`，否则不应要求前端为 Kratos 版本单独适配。
+- 除非 `web-react/` 本身偏离 `native/`，否则不应要求前端为 Kratos 版本单独适配。
 
 ## ORM 策略
 
@@ -98,7 +98,7 @@ kratos/
 - `user / role / org`
 - `dict / config`
 - `loginlog / operlog / storage-env / attachment`
-- 最后对照 `native/` 与 `web/` 做完整兼容性回归。
+- 最后对照 `native/` 与 `web-react/` 做完整兼容性回归。
 
 ## 当前实现约束
 

@@ -10,7 +10,7 @@
 - `kratos/`：基于 Kratos 开源微服务框架的实现。
 - `gozero/`：基于 go-zero 开源微服务框架的实现。
 
-前端以 `web-react/` 为当前推荐工程。它通过统一 HTTP 契约与后端交互，目标是同一套前端无缝对接三套后端实现。`web/` 是历史 Vue 前端，严禁在后续开发中读取或参考，目录后续可能移除。
+前端只有 `web-react/`。它通过统一 HTTP 契约与后端交互，目标是同一套前端无缝对接三套后端实现。
 
 ## 最重要的理解顺序
 
@@ -27,8 +27,7 @@ quick.admin/
 ├── native/      # 手搓原生 Go 后端，业务基线
 ├── kratos/      # Kratos 微服务框架实现
 ├── gozero/      # go-zero 微服务框架实现
-├── web-react/   # 当前推荐 React 前端
-├── web/         # 历史 Vue 前端，严禁后续读取或参考，可能移除
+├── web-react/   # React 前端
 ├── README.md
 ├── AGENTS.md
 └── CLAUDE.md

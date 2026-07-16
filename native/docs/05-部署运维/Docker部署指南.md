@@ -113,7 +113,7 @@ docs/
 README.md
 
 # 前端
-web/
+web-react/
 node_modules/
 
 # 环境配置

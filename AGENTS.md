@@ -4,13 +4,12 @@
 
 ## 项目定位
 
-`quick.admin` 是一个后台系统脚手架工程。它不是单一后端工程，而是同一套后端业务逻辑的三套 Go 实现，加上前端工程：
+`quick.admin` 是一个后台系统脚手架工程。它不是单一后端工程，而是同一套后端业务逻辑的三套 Go 实现，加上一个 React 前端工程：
 
 - `native/`：开发者从零手搓的原生 Go 后端实现，是业务语义和接口行为的基线。
 - `kratos/`：基于 Kratos 开源微服务框架的实现。
 - `gozero/`：基于 go-zero 开源微服务框架的实现。
-- `web-react/`：当前推荐前端工程，应尽量无缝对接三套后端实现。
-- `web/`：历史 Vue 前端工程，严禁在后续开发中读取或参考，目录后续可能移除。
+- `web-react/`：唯一的前端工程，应尽量无缝对接三套后端实现。
 
 本质上，这是一套后台管理系统能力在三种后端框架里的对照实现。做需求或修 bug 时，先理解 `native` 的业务语义，再把同等行为落到目标框架实现中。
 
@@ -30,8 +29,7 @@ quick.admin/
 ├── native/      # 原生 Go 后端，业务基线，开发者手搓实现
 ├── kratos/      # Kratos 微服务框架版本
 ├── gozero/      # go-zero 微服务框架版本
-├── web-react/   # 当前推荐 React 前端
-├── web/         # 历史 Vue 前端，严禁后续读取或参考，可能移除
+├── web-react/   # React 前端
 ├── README.md
 ├── AGENTS.md
 └── CLAUDE.md
@@ -112,7 +110,7 @@ go test ./...
 
 ### web-react
 
-`web-react/` 是当前推荐前端。它只应依赖统一 HTTP 契约，不应因为后端实现不同而写兼容逻辑或分支判断。
+`web-react/` 是唯一的前端工程。它只应依赖统一 HTTP 契约，不应因为后端实现不同而写兼容逻辑或分支判断。
 
 前端契约原则：
 
@@ -132,10 +130,6 @@ pnpm build
 
 默认开发服务端口参考 `web-react/README.md`。
 
-### web
-
-`web/` 是历史 Vue 前端工程，严禁在后续开发中读取或参考，也不作为新需求入口。这个目录后续可能移除。
-
 ## 开发建议
 
 - 做业务改动前，先在 `native/` 找到对应 controller/service/model/request/response。
@@ -151,4 +145,3 @@ pnpm build
 - 想改 Kratos 微服务版本：看 `kratos/api` 和 `kratos/application`。
 - 想改 go-zero 微服务版本：看 `gozero/application`。
 - 想看前端当前对接方式：看 `web-react/src`。
-- `web/` 是历史 Vue 前端，严禁在后续开发中读取或参考。

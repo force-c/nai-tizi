@@ -8,7 +8,7 @@
 
 - 保留 `native` 作为业务基线
 - 提供 `gozero`、`kratos` 两套重写实现
-- 提供 `web` 前端工程作为脚手架组成部分
+- 提供 `web-react` 作为唯一的 React 前端工程
 
 当前主要目录：
 
@@ -19,8 +19,8 @@
   - 基于 go-zero 的后端重写版本
 - `kratos/`
   - 基于 Kratos 的后端重写版本
-- `web/`
-  - 前端工程
+- `web-react/`
+  - React 前端工程
 
 ## 仓库结构
 
@@ -29,7 +29,7 @@ quick.admin/
 ├── native/
 ├── gozero/
 ├── kratos/
-├── web/
+├── web-react/
 ├── LICENSE
 └── README.md
 ```
@@ -71,9 +71,9 @@ quick.admin/
 - 详细文档位于：
   - `kratos/docs`
 
-### `web/`
+### `web-react/`
 
-前端工程。
+唯一的前端工程，基于 React、TypeScript、Vite 和 Ant Design 构建。
 
 特点：
 
@@ -117,7 +117,7 @@ make build-all
 
 目录：
 
-- [/Users/guoc/dev/code_go/src/quick.admin/web](/Users/guoc/dev/code_go/src/quick.admin/web)
+- [/Users/guoc/dev/code_go/src/quick.admin/web-react](/Users/guoc/dev/code_go/src/quick.admin/web-react)
 
 ## 说明
 

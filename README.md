@@ -8,8 +8,7 @@
 
 - 保留 `native` 作为基准工程和业务基线
 - 提供 `gozero`、`kratos` 两套重写实现，其同步更新进度可能相对 `native` 滞后
-- 提供 `web-react` 作为当前推荐的 React 前端工程
-- 保留 `web` 作为历史 Vue 前端工程，当前暂时废弃
+- 提供 `web-react` 作为唯一的 React 前端工程
 
 当前主要目录：
 
@@ -24,10 +23,7 @@
   - 同步更新进度可能相对 `native` 滞后
 - `web-react/`
   - React + TypeScript 前端工程
-  - 当前推荐用于前端开发和联调
-- `web/`
-  - Vue 前端工程
-  - 历史版本，当前暂时废弃
+  - 用于前端开发和联调
 
 ## 仓库结构
 
@@ -37,7 +33,6 @@ quick.admin/
 ├── gozero/
 ├── kratos/
 ├── web-react/
-├── web/
 ├── LICENSE
 └── README.md
 ```
@@ -83,31 +78,19 @@ quick.admin/
 
 ### `web-react/`
 
-当前推荐使用的前端工程，基于 React + TypeScript + Vite + Ant Design 构建。
+唯一的前端工程，基于 React + TypeScript + Vite + Ant Design 构建。
 
 特点：
 
 - 对接后端接口
-- 用于替代原 `web` Vue 版本
 - 默认开发服务端口为 `3001`
 - 详细说明见 [web-react/README.md](/Users/guoc/dev/code_go/src/quick.admin/web-react/README.md)
-
-### `web/`
-
-历史 Vue 前端工程，当前暂时废弃。
-
-特点：
-
-- 仅作为历史实现参考
-- 不再作为当前推荐的开发和联调入口
-- 新的前端需求优先在 `web-react/` 中实现
 
 ## 当前约定
 
 - `native/` 作为基准工程和业务基线
 - `gozero/` 和 `kratos/` 是两套独立重写实现，同步更新进度可能相对 `native/` 滞后
-- `web-react/` 是当前推荐前端工程
-- `web/` 是历史 Vue 版本，当前暂时废弃
+- `web-react/` 是唯一前端工程
 - 前端联调时，需要明确当前对接的是哪一套后端
 - 如果对比接口契约、行为或返回结构，优先参考 `native/`
 
