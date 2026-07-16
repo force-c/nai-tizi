@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v5"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -83,24 +83,31 @@ var (
 )
 
 // PrometheusMiddleware 指标收集中间件。
-func PrometheusMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		start := time.Now()
+func PrometheusMiddleware() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			start := time.Now()
 
-		c.Next()
+			err := next(c)
 
-		duration := time.Since(start).Seconds()
-		status := strconv.Itoa(c.Writer.Status())
+			duration := time.Since(start).Seconds()
+			statusCode := 200
+			if response, unwrapErr := echo.UnwrapResponse(c.Response()); unwrapErr == nil {
+				statusCode = response.Status
+			}
+			status := strconv.Itoa(statusCode)
 
-		HttpRequestsTotal.WithLabelValues(
-			c.Request.Method,
-			c.FullPath(),
-			status,
-		).Inc()
+			HttpRequestsTotal.WithLabelValues(
+				c.Request().Method,
+				c.Path(),
+				status,
+			).Inc()
 
-		HttpRequestDuration.WithLabelValues(
-			c.Request.Method,
-			c.FullPath(),
-		).Observe(duration)
+			HttpRequestDuration.WithLabelValues(
+				c.Request().Method,
+				c.Path(),
+			).Observe(duration)
+			return err
+		}
 	}
 }

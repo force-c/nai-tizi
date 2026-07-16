@@ -3,12 +3,12 @@ package router
 import (
 	"github.com/gcc798/quick.admin/internal/constants"
 	"github.com/gcc798/quick.admin/internal/controller"
+	"github.com/gcc798/quick.admin/internal/httpx"
 	"github.com/gcc798/quick.admin/internal/middleware"
-	"github.com/gin-gonic/gin"
 )
 
 // registerApiPermissionRoutes 注册 API 权限管理路由。
-func registerApiPermissionRoutes(r *gin.Engine, ctx *RouterContext) {
+func registerApiPermissionRoutes(r *httpx.Router, ctx *RouterContext) {
 	apiPermissionController := controller.NewApiPermissionController(ctx.Container)
 
 	apiPermissions := r.Group("/api/v1/api-permission")

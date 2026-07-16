@@ -26,13 +26,13 @@ type BindAttachmentToBusinessRequest struct {
 
 // GetAttachmentURLRequest 获取附件 URL 请求（Query 参数）
 type GetAttachmentURLRequest struct {
-	Expires int `form:"expires" binding:"omitempty,min=0" msg:"过期时间不能为负数"` // 过期时间（秒），0 表示永久，默认 3600
+	Expires int `form:"expires" query:"expires" binding:"omitempty,min=0" msg:"过期时间不能为负数"` // 过期时间（秒），0 表示永久，默认 3600
 }
 
 // ListAttachmentsByBusinessRequest 根据业务查询附件列表请求（Query 参数）
 type ListAttachmentsByBusinessRequest struct {
-	BusinessType string `form:"businessType" binding:"required" msg:"业务类型不能为空"`
-	BusinessId   string `form:"businessId" binding:"required" msg:"业务ID不能为空"`
+	BusinessType string `form:"businessType" query:"businessType" binding:"required" msg:"业务类型不能为空"`
+	BusinessId   string `form:"businessId" query:"businessId" binding:"required" msg:"业务ID不能为空"`
 }
 
 // PageAttachmentsRequest 分页查询附件列表请求

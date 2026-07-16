@@ -2,19 +2,19 @@ package validator
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 
-	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/locales/zh"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
-	"reflect"
 )
 
 var trans ut.Translator
 
 // Init 初始化中文翻译器
 func Init() {
+	Register()
 	// 创建中文翻译器
 	zhTranslator := zh.New()
 	uni := ut.New(zhTranslator, zhTranslator)
@@ -25,60 +25,57 @@ func Init() {
 		return
 	}
 
-	// 获取 gin 的 validator
-	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-		// 注册翻译器
-		_ = v.RegisterTranslation("required", trans, func(ut ut.Translator) error {
-			return ut.Add("required", "{0}不能为空", true)
-		}, func(ut ut.Translator, fe validator.FieldError) string {
-			t, _ := ut.T("required", getFieldName(fe.Field()))
-			return t
-		})
+	// 注册翻译器
+	_ = engine.RegisterTranslation("required", trans, func(ut ut.Translator) error {
+		return ut.Add("required", "{0}不能为空", true)
+	}, func(ut ut.Translator, fe validator.FieldError) string {
+		t, _ := ut.T("required", getFieldName(fe.Field()))
+		return t
+	})
 
-		_ = v.RegisterTranslation("min", trans, func(ut ut.Translator) error {
-			return ut.Add("min", "{0}长度不能少于{1}个字符", true)
-		}, func(ut ut.Translator, fe validator.FieldError) string {
-			t, _ := ut.T("min", getFieldName(fe.Field()), fe.Param())
-			return t
-		})
+	_ = engine.RegisterTranslation("min", trans, func(ut ut.Translator) error {
+		return ut.Add("min", "{0}长度不能少于{1}个字符", true)
+	}, func(ut ut.Translator, fe validator.FieldError) string {
+		t, _ := ut.T("min", getFieldName(fe.Field()), fe.Param())
+		return t
+	})
 
-		_ = v.RegisterTranslation("max", trans, func(ut ut.Translator) error {
-			return ut.Add("max", "{0}长度不能超过{1}个字符", true)
-		}, func(ut ut.Translator, fe validator.FieldError) string {
-			t, _ := ut.T("max", getFieldName(fe.Field()), fe.Param())
-			return t
-		})
+	_ = engine.RegisterTranslation("max", trans, func(ut ut.Translator) error {
+		return ut.Add("max", "{0}长度不能超过{1}个字符", true)
+	}, func(ut ut.Translator, fe validator.FieldError) string {
+		t, _ := ut.T("max", getFieldName(fe.Field()), fe.Param())
+		return t
+	})
 
-		_ = v.RegisterTranslation("len", trans, func(ut ut.Translator) error {
-			return ut.Add("len", "{0}长度必须为{1}位", true)
-		}, func(ut ut.Translator, fe validator.FieldError) string {
-			t, _ := ut.T("len", getFieldName(fe.Field()), fe.Param())
-			return t
-		})
+	_ = engine.RegisterTranslation("len", trans, func(ut ut.Translator) error {
+		return ut.Add("len", "{0}长度必须为{1}位", true)
+	}, func(ut ut.Translator, fe validator.FieldError) string {
+		t, _ := ut.T("len", getFieldName(fe.Field()), fe.Param())
+		return t
+	})
 
-		_ = v.RegisterTranslation("email", trans, func(ut ut.Translator) error {
-			return ut.Add("email", "{0}格式不正确", true)
-		}, func(ut ut.Translator, fe validator.FieldError) string {
-			t, _ := ut.T("email", getFieldName(fe.Field()))
-			return t
-		})
+	_ = engine.RegisterTranslation("email", trans, func(ut ut.Translator) error {
+		return ut.Add("email", "{0}格式不正确", true)
+	}, func(ut ut.Translator, fe validator.FieldError) string {
+		t, _ := ut.T("email", getFieldName(fe.Field()))
+		return t
+	})
 
-		_ = v.RegisterTranslation("oneof", trans, func(ut ut.Translator) error {
-			return ut.Add("oneof", "{0}的值必须是以下之一: {1}", true)
-		}, func(ut ut.Translator, fe validator.FieldError) string {
-			t, _ := ut.T("oneof", getFieldName(fe.Field()), fe.Param())
-			return t
-		})
+	_ = engine.RegisterTranslation("oneof", trans, func(ut ut.Translator) error {
+		return ut.Add("oneof", "{0}的值必须是以下之一: {1}", true)
+	}, func(ut ut.Translator, fe validator.FieldError) string {
+		t, _ := ut.T("oneof", getFieldName(fe.Field()), fe.Param())
+		return t
+	})
 
-		// 注册 json tag 获取函数，使错误信息中的字段名使用 json tag
-		v.RegisterTagNameFunc(func(fld reflect.StructField) string {
-			name := strings.SplitN(fld.Tag.Get("json"), ",", 1)[0]
-			if name == "-" {
-				return fld.Name
-			}
-			return name
-		})
-	}
+	// 注册 json tag 获取函数，使错误信息中的字段名使用 json tag
+	engine.RegisterTagNameFunc(func(fld reflect.StructField) string {
+		name := strings.SplitN(fld.Tag.Get("json"), ",", 1)[0]
+		if name == "-" {
+			return fld.Name
+		}
+		return name
+	})
 }
 
 // Translate 翻译错误信息

@@ -3,12 +3,12 @@ package router
 import (
 	"github.com/gcc798/quick.admin/internal/constants"
 	"github.com/gcc798/quick.admin/internal/controller"
+	"github.com/gcc798/quick.admin/internal/httpx"
 	"github.com/gcc798/quick.admin/internal/middleware"
-	"github.com/gin-gonic/gin"
 )
 
 // registerStorageEnvRoutes 注册存储环境管理路由
-func registerStorageEnvRoutes(r *gin.Engine, ctx *RouterContext) {
+func registerStorageEnvRoutes(r *httpx.Router, ctx *RouterContext) {
 	// 初始化 controller
 	storageEnvController := controller.NewStorageEnvController(ctx.Container)
 

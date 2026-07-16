@@ -9,20 +9,20 @@ import (
 	"github.com/gcc798/quick.admin/internal/service"
 	"github.com/gcc798/quick.admin/internal/utils"
 	_ "github.com/gcc798/quick.admin/internal/utils/pagination"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v5"
 	"go.uber.org/zap"
 )
 
 // StorageEnvController 定义业务数据结构。
 type StorageEnvController interface {
-	CreateStorageEnv(ctx *gin.Context)         // 创建存储环境
-	UpdateStorageEnv(ctx *gin.Context)         // 更新存储环境
-	DeleteStorageEnv(ctx *gin.Context)         // 删除存储环境
-	GetStorageEnv(ctx *gin.Context)            // 获取存储环境详情
-	SetDefaultStorageEnv(ctx *gin.Context)     // 设置默认存储环境
-	GetDefaultStorageEnv(ctx *gin.Context)     // 获取默认存储环境
-	PageStorageEnv(ctx *gin.Context)           // 分页查询存储环境列表
-	TestStorageEnvConnection(ctx *gin.Context) // 测试存储环境连接
+	CreateStorageEnv(ctx *echo.Context)         // 创建存储环境
+	UpdateStorageEnv(ctx *echo.Context)         // 更新存储环境
+	DeleteStorageEnv(ctx *echo.Context)         // 删除存储环境
+	GetStorageEnv(ctx *echo.Context)            // 获取存储环境详情
+	SetDefaultStorageEnv(ctx *echo.Context)     // 设置默认存储环境
+	GetDefaultStorageEnv(ctx *echo.Context)     // 获取默认存储环境
+	PageStorageEnv(ctx *echo.Context)           // 分页查询存储环境列表
+	TestStorageEnvConnection(ctx *echo.Context) // 测试存储环境连接
 }
 
 type storageEnvController struct {
@@ -49,14 +49,14 @@ func NewStorageEnvController(c container.Container) StorageEnvController {
 //	@Param			body			body		request.CreateStorageEnvRequest	true	"存储环境信息"
 //	@Success		200				{object}	response.Response{data=model.StorageEnv}
 //	@Router			/api/v1/storage-env [post]
-func (c *storageEnvController) CreateStorageEnv(ctx *gin.Context) {
+func (c *storageEnvController) CreateStorageEnv(ctx *echo.Context) {
 	var req request.CreateStorageEnvRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "参数错误: "+err.Error())
 		return
 	}
 
-	userId, _ := ctx.Get("userId")
+	userId := ctx.Get("userId")
 
 	env := &model.StorageEnv{
 		EnvName:     req.EnvName,
@@ -69,7 +69,7 @@ func (c *storageEnvController) CreateStorageEnv(ctx *gin.Context) {
 	}
 	env.CreateBy = userId.(int64)
 
-	if err := c.storageEnvService.Create(ctx.Request.Context(), env); err != nil {
+	if err := c.storageEnvService.Create(ctx.Request().Context(), env); err != nil {
 		c.logger.Error("创建存储环境失败", zap.Error(err))
 		response.InternalServerError(ctx, "创建存储环境失败: "+err.Error())
 		return
@@ -90,7 +90,7 @@ func (c *storageEnvController) CreateStorageEnv(ctx *gin.Context) {
 //	@Param			body			body		request.UpdateStorageEnvRequest	true	"存储环境信息"
 //	@Success		200				{object}	response.Response
 //	@Router			/api/v1/storage-env/{id} [put]
-func (c *storageEnvController) UpdateStorageEnv(ctx *gin.Context) {
+func (c *storageEnvController) UpdateStorageEnv(ctx *echo.Context) {
 	envId, err := utils.ParseInt64Param(ctx, "id", "required")
 	if err != nil {
 		response.BadRequest(ctx, err.Error())
@@ -98,13 +98,13 @@ func (c *storageEnvController) UpdateStorageEnv(ctx *gin.Context) {
 	}
 
 	var req request.UpdateStorageEnvRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "参数错误: "+err.Error())
 		return
 	}
 	req.ID = envId
 
-	userId, _ := ctx.Get("userId")
+	userId := ctx.Get("userId")
 
 	env := &model.StorageEnv{
 		ID:          req.ID,
@@ -118,7 +118,7 @@ func (c *storageEnvController) UpdateStorageEnv(ctx *gin.Context) {
 	}
 	env.UpdateBy = userId.(int64)
 
-	if err := c.storageEnvService.Update(ctx.Request.Context(), env); err != nil {
+	if err := c.storageEnvService.Update(ctx.Request().Context(), env); err != nil {
 		c.logger.Error("更新存储环境失败", zap.Error(err))
 		response.InternalServerError(ctx, "更新存储环境失败: "+err.Error())
 		return
@@ -138,14 +138,14 @@ func (c *storageEnvController) UpdateStorageEnv(ctx *gin.Context) {
 //	@Param			id			path		int		true	"环境ID"
 //	@Success		200				{object}	response.Response
 //	@Router			/api/v1/storage-env/{id} [delete]
-func (c *storageEnvController) DeleteStorageEnv(ctx *gin.Context) {
+func (c *storageEnvController) DeleteStorageEnv(ctx *echo.Context) {
 	envId, err := utils.ParseInt64Param(ctx, "id", "required")
 	if err != nil {
 		response.BadRequest(ctx, err.Error())
 		return
 	}
 
-	if err := c.storageEnvService.Delete(ctx.Request.Context(), envId); err != nil {
+	if err := c.storageEnvService.Delete(ctx.Request().Context(), envId); err != nil {
 		c.logger.Error("删除存储环境失败", zap.Error(err))
 		response.InternalServerError(ctx, "删除存储环境失败: "+err.Error())
 		return
@@ -165,14 +165,14 @@ func (c *storageEnvController) DeleteStorageEnv(ctx *gin.Context) {
 //	@Param			id			path		int		true	"环境ID"
 //	@Success		200				{object}	response.Response{data=model.StorageEnv}
 //	@Router			/api/v1/storage-env/{id} [get]
-func (c *storageEnvController) GetStorageEnv(ctx *gin.Context) {
+func (c *storageEnvController) GetStorageEnv(ctx *echo.Context) {
 	envId, err := utils.ParseInt64Param(ctx, "id", "required")
 	if err != nil {
 		response.BadRequest(ctx, err.Error())
 		return
 	}
 
-	env, err := c.storageEnvService.GetById(ctx.Request.Context(), envId)
+	env, err := c.storageEnvService.GetById(ctx.Request().Context(), envId)
 	if err != nil {
 		c.logger.Error("获取存储环境详情失败", zap.Error(err))
 		response.InternalServerError(ctx, "获取存储环境详情失败: "+err.Error())
@@ -193,14 +193,14 @@ func (c *storageEnvController) GetStorageEnv(ctx *gin.Context) {
 //	@Param			body			body		request.SetDefaultStorageEnvRequest	true	"环境ID"
 //	@Success		200				{object}	response.Response
 //	@Router			/api/v1/storage-env/default [post]
-func (c *storageEnvController) SetDefaultStorageEnv(ctx *gin.Context) {
+func (c *storageEnvController) SetDefaultStorageEnv(ctx *echo.Context) {
 	var req request.SetDefaultStorageEnvRequest
 	if err := utils.BindJSONWithTypeCasting(ctx, &req); err != nil {
 		response.BadRequest(ctx, "参数错误: "+err.Error())
 		return
 	}
 
-	if err := c.storageEnvService.SetDefault(ctx.Request.Context(), req.ID); err != nil {
+	if err := c.storageEnvService.SetDefault(ctx.Request().Context(), req.ID); err != nil {
 		c.logger.Error("设置默认存储环境失败", zap.Error(err))
 		response.InternalServerError(ctx, "设置默认存储环境失败: "+err.Error())
 		return
@@ -219,8 +219,8 @@ func (c *storageEnvController) SetDefaultStorageEnv(ctx *gin.Context) {
 //	@Param			Authorization	header		string	true	"Bearer {token}"
 //	@Success		200				{object}	response.Response{data=model.StorageEnv}
 //	@Router			/api/v1/storage-env/default [get]
-func (c *storageEnvController) GetDefaultStorageEnv(ctx *gin.Context) {
-	env, err := c.storageEnvService.GetDefault(ctx.Request.Context())
+func (c *storageEnvController) GetDefaultStorageEnv(ctx *echo.Context) {
+	env, err := c.storageEnvService.GetDefault(ctx.Request().Context())
 	if err != nil {
 		c.logger.Error("获取默认存储环境失败", zap.Error(err))
 		response.InternalServerError(ctx, "获取默认存储环境失败: "+err.Error())
@@ -241,14 +241,14 @@ func (c *storageEnvController) GetDefaultStorageEnv(ctx *gin.Context) {
 //	@Param			body			body		request.PageStorageEnvsRequest	true	"查询参数"
 //	@Success		200				{object}	response.Response{data=object}
 //	@Router			/api/v1/storage-env/page [post]
-func (c *storageEnvController) PageStorageEnv(ctx *gin.Context) {
+func (c *storageEnvController) PageStorageEnv(ctx *echo.Context) {
 	var req request.PageStorageEnvsRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "参数错误: "+err.Error())
 		return
 	}
 
-	page, err := c.storageEnvService.Page(ctx.Request.Context(), req.PageNum, req.PageSize, req.Name, req.StorageType)
+	page, err := c.storageEnvService.Page(ctx.Request().Context(), req.PageNum, req.PageSize, req.Name, req.StorageType)
 	if err != nil {
 		c.logger.Error("分页查询存储环境列表失败", zap.Error(err))
 		response.InternalServerError(ctx, "分页查询存储环境列表失败: "+err.Error())
@@ -270,14 +270,14 @@ func (c *storageEnvController) PageStorageEnv(ctx *gin.Context) {
 //	@Param			body			body		request.TestStorageEnvConnectionRequest	false	"测试参数"
 //	@Success		200				{object}	response.Response
 //	@Router			/api/v1/storage-env/{id}/test [post]
-func (c *storageEnvController) TestStorageEnvConnection(ctx *gin.Context) {
+func (c *storageEnvController) TestStorageEnvConnection(ctx *echo.Context) {
 	envId, err := utils.ParseInt64Param(ctx, "id", "required")
 	if err != nil {
 		response.BadRequest(ctx, err.Error())
 		return
 	}
 
-	if err := c.storageEnvService.TestConnection(ctx.Request.Context(), envId); err != nil {
+	if err := c.storageEnvService.TestConnection(ctx.Request().Context(), envId); err != nil {
 		c.logger.Error("测试存储环境连接失败", zap.Error(err))
 		response.InternalServerError(ctx, "测试存储环境连接失败: "+err.Error())
 		return

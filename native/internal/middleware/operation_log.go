@@ -14,7 +14,7 @@ import (
 	logging "github.com/gcc798/quick.admin/internal/logger"
 	"github.com/gcc798/quick.admin/internal/utils"
 	"github.com/gcc798/quick.admin/internal/utils/idgen"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v5"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -141,83 +141,88 @@ func (w *OperLogWriter) Stop() {
 }
 
 // OperationLog 操作日志中间件
-func OperationLog(db *gorm.DB, logger logging.Logger) gin.HandlerFunc {
+func OperationLog(db *gorm.DB, logger logging.Logger) echo.MiddlewareFunc {
 	// 获取日志写入器单例
 	writer := getOperLogWriter(db, logger)
 
-	return func(c *gin.Context) {
-		// 跳过操作日志相关的请求，避免递归记录
-		if shouldSkipLogging(c.Request.URL.Path) {
-			c.Next()
-			return
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			// 跳过操作日志相关的请求，避免递归记录
+			if shouldSkipLogging(c.Request().URL.Path) {
+				return next(c)
+			}
+
+			start := utils.Now()
+			bodyBytes := readBody(c)
+
+			handlerErr := next(c)
+			if handlerErr != nil {
+				c.Set("handler_error", handlerErr)
+			}
+
+			duration := time.Since(start.Time()).Milliseconds()
+			operParam := extractParams(c, bodyBytes)
+			status, errMsg := resolveStatus(c)
+
+			// 获取用户信息：格式为 "用户ID-用户名称"
+			userId := getStringValue(c, "userId")
+			userName := getStringValue(c, "userName")
+			operName := formatOperName(userId, userName)
+
+			// 获取终端类型（从 token 中解析）
+			deviceType := getStringValue(c, "deviceType")
+			if deviceType == "" {
+				deviceType = "unknown"
+			}
+
+			// 获取标题和业务类型（优先从上下文获取，否则自动推断）
+			title := getOperLogTitle(c)
+			businessType := getBusinessType(c)
+
+			logEntry := &model.OperLog{
+				ID:            idgen.MustNextID(),
+				Title:         title,
+				BusinessType:  businessType,
+				Method:        c.RouteInfo().Name,
+				RequestMethod: c.Request().Method,
+				DeviceType:    deviceType,
+				OperName:      operName,
+				OperUrl:       c.Request().URL.Path,
+				OperIp:        utils.GetClientIP(c),
+				OperParam:     truncate(operParam, 2000),
+				Status:        status,
+				ErrorMsg:      truncate(errMsg, 1000),
+				OperTime:      start,
+				CostTime:      duration,
+				UserAgent:     c.Request().UserAgent(),
+			}
+
+			// 写入日志到通道（批量写入）
+			writer.Write(logEntry)
+			return handlerErr
 		}
-
-		start := utils.Now()
-		bodyBytes := readBody(c)
-
-		c.Next()
-
-		duration := time.Since(start.Time()).Milliseconds()
-		operParam := extractParams(c, bodyBytes)
-		status, errMsg := resolveStatus(c)
-
-		// 获取用户信息：格式为 "用户ID-用户名称"
-		userId := getStringValue(c, "userId")
-		userName := getStringValue(c, "userName")
-		operName := formatOperName(userId, userName)
-
-		// 获取终端类型（从 token 中解析）
-		deviceType := getStringValue(c, "deviceType")
-		if deviceType == "" {
-			deviceType = "unknown"
-		}
-
-		// 获取标题和业务类型（优先从上下文获取，否则自动推断）
-		title := getOperLogTitle(c)
-		businessType := getBusinessType(c)
-
-		logEntry := &model.OperLog{
-			ID:            idgen.MustNextID(),
-			Title:         title,
-			BusinessType:  businessType,
-			Method:        c.HandlerName(),
-			RequestMethod: c.Request.Method,
-			DeviceType:    deviceType,
-			OperName:      operName,
-			OperUrl:       c.Request.URL.Path,
-			OperIp:        utils.GetClientIP(c),
-			OperParam:     truncate(operParam, 2000),
-			Status:        status,
-			ErrorMsg:      truncate(errMsg, 1000),
-			OperTime:      start,
-			CostTime:      duration,
-			UserAgent:     c.Request.UserAgent(),
-		}
-
-		// 写入日志到通道（批量写入）
-		writer.Write(logEntry)
 	}
 }
 
-func readBody(c *gin.Context) []byte {
-	if c.Request == nil || c.Request.Body == nil {
+func readBody(c *echo.Context) []byte {
+	if c.Request() == nil || c.Request().Body == nil {
 		return nil
 	}
 	// 仅对可重复读场景处理
-	if c.Request.Method == http.MethodGet || c.Request.Method == http.MethodDelete {
+	if c.Request().Method == http.MethodGet || c.Request().Method == http.MethodDelete {
 		return nil
 	}
-	body, err := io.ReadAll(c.Request.Body)
+	body, err := io.ReadAll(c.Request().Body)
 	if err != nil {
 		return nil
 	}
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+	c.Request().Body = io.NopCloser(bytes.NewBuffer(body))
 	return body
 }
 
-func extractParams(c *gin.Context, body []byte) string {
+func extractParams(c *echo.Context, body []byte) string {
 	// 检查是否为文件上传请求
-	contentType := c.ContentType()
+	contentType := c.Request().Header.Get("Content-Type")
 	if strings.Contains(contentType, "multipart/form-data") {
 		// 对于文件上传，记录表单字段而不是二进制内容
 		return extractMultipartParams(c)
@@ -226,21 +231,21 @@ func extractParams(c *gin.Context, body []byte) string {
 	if len(body) > 0 {
 		return string(body)
 	}
-	return c.Request.URL.RawQuery
+	return c.Request().URL.RawQuery
 }
 
 // extractMultipartParams 提取 multipart/form-data 请求的参数摘要
-func extractMultipartParams(c *gin.Context) string {
+func extractMultipartParams(c *echo.Context) string {
 	// 解析 multipart 表单
-	if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
+	if err := c.Request().ParseMultipartForm(32 << 20); err != nil {
 		return "文件上传请求（解析失败）"
 	}
 
 	var params []string
 
 	// 记录普通表单字段
-	if c.Request.MultipartForm != nil && c.Request.MultipartForm.Value != nil {
-		for key, values := range c.Request.MultipartForm.Value {
+	if c.Request().MultipartForm != nil && c.Request().MultipartForm.Value != nil {
+		for key, values := range c.Request().MultipartForm.Value {
 			for _, value := range values {
 				params = append(params, fmt.Sprintf("%s=%s", key, value))
 			}
@@ -248,8 +253,8 @@ func extractMultipartParams(c *gin.Context) string {
 	}
 
 	// 记录文件信息（文件名和大小，不包含内容）
-	if c.Request.MultipartForm != nil && c.Request.MultipartForm.File != nil {
-		for fieldName, files := range c.Request.MultipartForm.File {
+	if c.Request().MultipartForm != nil && c.Request().MultipartForm.File != nil {
+		for fieldName, files := range c.Request().MultipartForm.File {
 			for _, file := range files {
 				params = append(params, fmt.Sprintf("%s=[文件: %s, 大小: %d bytes]",
 					fieldName, file.Filename, file.Size))
@@ -264,15 +269,15 @@ func extractMultipartParams(c *gin.Context) string {
 	return strings.Join(params, ", ")
 }
 
-func resolveStatus(c *gin.Context) (string, string) {
-	if len(c.Errors) == 0 {
+func resolveStatus(c *echo.Context) (string, string) {
+	if value := c.Get("handler_error"); value == nil {
 		return "0", ""
 	}
-	return "1", c.Errors.String()
+	return "1", fmt.Sprint(c.Get("handler_error"))
 }
 
-func getStringValue(c *gin.Context, key string) string {
-	if v, ok := c.Get(key); ok {
+func getStringValue(c *echo.Context, key string) string {
+	if v := c.Get(key); v != nil {
 		return fmt.Sprint(v)
 	}
 	return ""
@@ -287,20 +292,20 @@ func truncate(val string, max int) string {
 
 // getOperLogTitle 获取操作日志标题
 // 优先从上下文获取，否则根据路径自动生成
-func getOperLogTitle(c *gin.Context) string {
+func getOperLogTitle(c *echo.Context) string {
 	// 优先从上下文获取自定义标题
 	if title := getStringValue(c, OperLogTitleKey); title != "" {
 		return title
 	}
 
 	// 根据路径自动生成标题
-	path := c.Request.URL.Path
+	path := c.Request().URL.Path
 	return generateTitleFromPath(path)
 }
 
 // getBusinessType 获取业务类型
 // 优先从上下文获取，否则根据请求方法和路径自动推断
-func getBusinessType(c *gin.Context) string {
+func getBusinessType(c *echo.Context) string {
 	// 优先从上下文获取自定义业务类型
 	if businessType := getStringValue(c, OperLogBusinessTypeKey); businessType != "" {
 		return businessType
@@ -347,9 +352,9 @@ func generateTitleFromPath(path string) string {
 }
 
 // inferBusinessType 推断业务类型
-func inferBusinessType(c *gin.Context) string {
-	method := c.Request.Method
-	path := c.Request.URL.Path
+func inferBusinessType(c *echo.Context) string {
+	method := c.Request().Method
+	path := c.Request().URL.Path
 
 	// 特殊路径判断
 	if containsSegment(path, "/export") {

@@ -2,12 +2,12 @@ package router
 
 import (
 	"github.com/gcc798/quick.admin/internal/controller"
+	"github.com/gcc798/quick.admin/internal/httpx"
 	"github.com/gcc798/quick.admin/internal/messaging/websocket"
-	"github.com/gin-gonic/gin"
 )
 
 // 注册公共路由（健康检查等）。
-func registerCommonRoutes(r *gin.Engine, ctx *RouterContext) {
+func registerCommonRoutes(r *httpx.Router, ctx *RouterContext) {
 	c := ctx.Container
 	logger := c.GetLogger()
 

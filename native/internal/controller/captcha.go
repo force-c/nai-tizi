@@ -7,7 +7,7 @@ import (
 	"github.com/gcc798/quick.admin/internal/service"
 	"github.com/gcc798/quick.admin/pkg/captcha"
 
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v5"
 )
 
 // CaptchaController 验证码控制器
@@ -35,8 +35,8 @@ func NewCaptchaController(captchaService service.CaptchaService, smsSender inter
 // @Produce json
 // @Success 200 {object} response.Response{data=captcha.CaptchaData}
 // @Router /captcha/image [get]
-func (c *CaptchaController) GenerateImageCaptcha(ctx *gin.Context) {
-	data, err := c.captchaService.Generate(ctx, captcha.CaptchaTypeImage, "")
+func (c *CaptchaController) GenerateImageCaptcha(ctx *echo.Context) {
+	data, err := c.captchaService.Generate(ctx.Request().Context(), captcha.CaptchaTypeImage, "")
 	if err != nil {
 		response.Fail(ctx, err.Error())
 		return
@@ -57,14 +57,14 @@ type SendSMSCaptchaRequest struct {
 // @Param request body SendSMSCaptchaRequest true "手机号"
 // @Success 200 {object} response.Response{data=captcha.CaptchaData}
 // @Router /captcha/sms [post]
-func (c *CaptchaController) SendSMSCaptcha(ctx *gin.Context) {
+func (c *CaptchaController) SendSMSCaptcha(ctx *echo.Context) {
 	var req SendSMSCaptchaRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, err.Error())
 		return
 	}
 
-	data, err := c.captchaService.Generate(ctx, captcha.CaptchaTypeSMS, req.Phone)
+	data, err := c.captchaService.Generate(ctx.Request().Context(), captcha.CaptchaTypeSMS, req.Phone)
 	if err != nil {
 		response.Fail(ctx, err.Error())
 		return
@@ -73,10 +73,10 @@ func (c *CaptchaController) SendSMSCaptcha(ctx *gin.Context) {
 }
 
 // ResourceSMSCode 执行业务逻辑。
-func (c *CaptchaController) ResourceSMSCode(ctx *gin.Context) {
-	phonenumber := ctx.Query("phonenumber")
+func (c *CaptchaController) ResourceSMSCode(ctx *echo.Context) {
+	phonenumber := ctx.QueryParam("phonenumber")
 	if phonenumber == "" {
-		phonenumber = ctx.Query("phone")
+		phonenumber = ctx.QueryParam("phone")
 	}
 	if phonenumber == "" {
 		response.BadRequest(ctx, "手机号不能为空")
@@ -86,7 +86,7 @@ func (c *CaptchaController) ResourceSMSCode(ctx *gin.Context) {
 		response.Fail(ctx, "短信服务未配置")
 		return
 	}
-	if _, err := c.smsSender.SendVerificationCode(ctx.Request.Context(), phonenumber); err != nil {
+	if _, err := c.smsSender.SendVerificationCode(ctx.Request().Context(), phonenumber); err != nil {
 		response.Fail(ctx, err.Error())
 		return
 	}
@@ -106,14 +106,14 @@ type SendEmailCaptchaRequest struct {
 // @Param request body SendEmailCaptchaRequest true "邮箱"
 // @Success 200 {object} response.Response{data=captcha.CaptchaData}
 // @Router /captcha/email [post]
-func (c *CaptchaController) SendEmailCaptcha(ctx *gin.Context) {
+func (c *CaptchaController) SendEmailCaptcha(ctx *echo.Context) {
 	var req SendEmailCaptchaRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, err.Error())
 		return
 	}
 
-	data, err := c.captchaService.Generate(ctx, captcha.CaptchaTypeEmail, req.Email)
+	data, err := c.captchaService.Generate(ctx.Request().Context(), captcha.CaptchaTypeEmail, req.Email)
 	if err != nil {
 		response.Fail(ctx, err.Error())
 		return
@@ -127,7 +127,7 @@ func (c *CaptchaController) SendEmailCaptcha(ctx *gin.Context) {
 // @Produce json
 // @Success 200 {object} response.Response{data=[]string}
 // @Router /captcha/types [get]
-func (c *CaptchaController) GetEnabledTypes(ctx *gin.Context) {
+func (c *CaptchaController) GetEnabledTypes(ctx *echo.Context) {
 	types := c.captchaService.GetEnabledTypes()
 	response.Success(ctx, types)
 }

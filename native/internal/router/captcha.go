@@ -2,12 +2,12 @@ package router
 
 import (
 	"github.com/gcc798/quick.admin/internal/controller"
+	"github.com/gcc798/quick.admin/internal/httpx"
 	"github.com/gcc798/quick.admin/internal/service"
-	"github.com/gin-gonic/gin"
 )
 
 // 注册验证码相关路由。
-func registerCaptchaRoutes(r *gin.Engine, ctx *RouterContext) {
+func registerCaptchaRoutes(r *httpx.Router, ctx *RouterContext) {
 	captchaService := service.NewCaptchaService(ctx.Container.GetCaptchaManager())
 	captchaController := controller.NewCaptchaController(captchaService, ctx.Container.GetSMS())
 

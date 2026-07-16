@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"io"
 	"strconv"
+	"strings"
 
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v5"
 )
 
 // StringIDConverter 字符串ID转换中间件
@@ -16,48 +17,48 @@ import (
 // 支持两种场景：
 // 1. 路径参数中的ID（如 /api/v1/user/:id）
 // 2. JSON请求体中的ID字段（如 {"id": "123456", "ids": ["1", "2", "3"]}）
-func StringIDConverter() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// 1. 处理路径参数中的 id
-		if idStr := c.Param("id"); idStr != "" {
-			// 尝试将字符串转换为 int64
-			if id, err := strconv.ParseInt(idStr, 10, 64); err == nil {
-				// 转换成功，将 int64 值存储到上下文中
-				c.Set("parsed_id", id)
+func StringIDConverter() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			// 1. 处理路径参数中的 id
+			if idStr := c.Param("id"); idStr != "" {
+				// 尝试将字符串转换为 int64
+				if id, err := strconv.ParseInt(idStr, 10, 64); err == nil {
+					// 转换成功，将 int64 值存储到上下文中
+					c.Set("parsed_id", id)
+				}
+				// 如果转换失败，保持原样，让后续处理器处理错误
 			}
-			// 如果转换失败，保持原样，让后续处理器处理错误
-		}
 
-		// 2. 处理 JSON 请求体中的 ID 字段
-		if c.Request.Method == "POST" || c.Request.Method == "PUT" || c.Request.Method == "PATCH" {
-			if c.ContentType() == "application/json" {
-				// 读取原始请求体
-				bodyBytes, err := io.ReadAll(c.Request.Body)
-				if err != nil {
-					c.Next()
-					return
-				}
+			// 2. 处理 JSON 请求体中的 ID 字段
+			if c.Request().Method == "POST" || c.Request().Method == "PUT" || c.Request().Method == "PATCH" {
+				if strings.HasPrefix(c.Request().Header.Get("Content-Type"), "application/json") {
+					// 读取原始请求体
+					bodyBytes, err := io.ReadAll(c.Request().Body)
+					if err != nil {
+						return next(c)
+					}
 
-				// 恢复请求体供后续使用
-				c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+					// 恢复请求体供后续使用
+					c.Request().Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-				// 如果请求体为空，直接跳过
-				if len(bodyBytes) == 0 {
-					c.Next()
-					return
-				}
+					// 如果请求体为空，直接跳过
+					if len(bodyBytes) == 0 {
+						return next(c)
+					}
 
-				// 尝试转换 JSON 中的字符串 ID
-				convertedBody, converted := convertStringIDsInJSON(bodyBytes)
-				if converted {
-					// 如果有转换，使用转换后的请求体
-					c.Request.Body = io.NopCloser(bytes.NewBuffer(convertedBody))
-					c.Request.ContentLength = int64(len(convertedBody))
+					// 尝试转换 JSON 中的字符串 ID
+					convertedBody, converted := convertStringIDsInJSON(bodyBytes)
+					if converted {
+						// 如果有转换，使用转换后的请求体
+						c.Request().Body = io.NopCloser(bytes.NewBuffer(convertedBody))
+						c.Request().ContentLength = int64(len(convertedBody))
+					}
 				}
 			}
-		}
 
-		c.Next()
+			return next(c)
+		}
 	}
 }
 

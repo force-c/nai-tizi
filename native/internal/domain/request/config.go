@@ -40,5 +40,5 @@ type PageConfigRequest struct {
 
 // GetConfigByCodeRequest 根据编码获取配置请求
 type GetConfigByCodeRequest struct {
-	Code string `form:"code" binding:"required" msg:"配置编码不能为空"` // 配置编码
+	Code string `form:"code" query:"code" binding:"required" msg:"配置编码不能为空"` // 配置编码
 }

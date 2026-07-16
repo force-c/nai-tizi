@@ -7,22 +7,22 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/gcc798/quick.admin/internal/httpx"
+	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestBindJSONWithTypeCasting_StringInt64_SingleField(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 
 	type requestBody struct {
 		EnvId int64 `json:"envId" typecast:"stringInt64"`
 	}
 
-	r := gin.New()
-	r.POST("/test", func(c *gin.Context) {
+	r := httpx.NewRouter(echo.New())
+	r.POST("/test", func(c *echo.Context) {
 		var body requestBody
 		if err := BindJSONWithTypeCasting(c, &body); err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
+			c.JSON(400, map[string]any{"error": err.Error()})
 			return
 		}
 		c.JSON(200, body)
@@ -46,17 +46,16 @@ func TestBindJSONWithTypeCasting_StringInt64_SingleField(t *testing.T) {
 }
 
 func TestBindJSONWithTypeCasting_StringInt64_ArrayField(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 
 	type requestBody struct {
 		IDs []int64 `json:"ids" typecast:"stringInt64"`
 	}
 
-	r := gin.New()
-	r.POST("/test", func(c *gin.Context) {
+	r := httpx.NewRouter(echo.New())
+	r.POST("/test", func(c *echo.Context) {
 		var body requestBody
 		if err := BindJSONWithTypeCasting(c, &body); err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
+			c.JSON(400, map[string]any{"error": err.Error()})
 			return
 		}
 		c.JSON(200, body)
@@ -85,17 +84,16 @@ func TestBindJSONWithTypeCasting_StringInt64_ArrayField(t *testing.T) {
 }
 
 func TestBindJSONWithTypeCasting_ToTime_SingleField(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 
 	type requestBody struct {
 		CreatedAt time.Time `json:"createdAt" typecast:"toTime"`
 	}
 
-	r := gin.New()
-	r.POST("/test", func(c *gin.Context) {
+	r := httpx.NewRouter(echo.New())
+	r.POST("/test", func(c *echo.Context) {
 		var body requestBody
 		if err := BindJSONWithTypeCasting(c, &body); err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
+			c.JSON(400, map[string]any{"error": err.Error()})
 			return
 		}
 		c.JSON(200, body)

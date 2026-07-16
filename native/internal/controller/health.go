@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gcc798/quick.admin/internal/container"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v5"
 )
 
 var (
@@ -16,10 +16,10 @@ var (
 
 // HealthController 定义业务数据结构。
 type HealthController interface {
-	Health(c *gin.Context)  // 基础健康检查
-	Ready(c *gin.Context)   // Kubernetes就绪检查
-	Live(c *gin.Context)    // Kubernetes存活检查
-	Startup(c *gin.Context) // Kubernetes启动检查
+	Health(c *echo.Context)  // 基础健康检查
+	Ready(c *echo.Context)   // Kubernetes就绪检查
+	Live(c *echo.Context)    // Kubernetes存活检查
+	Startup(c *echo.Context) // Kubernetes启动检查
 }
 
 type healthController struct {
@@ -51,7 +51,7 @@ type HealthResponse struct {
 //	@Success		200	{object}	HealthResponse	"服务正常"
 //	@Failure		503	{object}	HealthResponse	"服务异常"
 //	@Router			/health [get]
-func (h *healthController) Health(c *gin.Context) {
+func (h *healthController) Health(c *echo.Context) {
 	db := h.container.GetDB()
 	redis := h.container.GetRedis()
 
@@ -108,7 +108,7 @@ func (h *healthController) Health(c *gin.Context) {
 //	@Success		200	{object}	map[string]string	"服务就绪"
 //	@Failure		503	{object}	map[string]string	"服务未就绪"
 //	@Router			/health/ready [get]
-func (h *healthController) Ready(c *gin.Context) {
+func (h *healthController) Ready(c *echo.Context) {
 	db := h.container.GetDB()
 	redis := h.container.GetRedis()
 
@@ -116,7 +116,7 @@ func (h *healthController) Ready(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		if err := sqlDB.PingContext(ctx); err != nil {
-			c.JSON(503, gin.H{
+			c.JSON(503, map[string]any{
 				"status":  "not ready",
 				"reason":  "database connection failed",
 				"message": err.Error(),
@@ -124,7 +124,7 @@ func (h *healthController) Ready(c *gin.Context) {
 			return
 		}
 	} else {
-		c.JSON(503, gin.H{
+		c.JSON(503, map[string]any{
 			"status":  "not ready",
 			"reason":  "database not initialized",
 			"message": err.Error(),
@@ -135,7 +135,7 @@ func (h *healthController) Ready(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	if err := redis.Ping(ctx).Err(); err != nil {
-		c.JSON(503, gin.H{
+		c.JSON(503, map[string]any{
 			"status":  "not ready",
 			"reason":  "redis connection failed",
 			"message": err.Error(),
@@ -143,7 +143,7 @@ func (h *healthController) Ready(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, gin.H{
+	c.JSON(200, map[string]any{
 		"status":  "ready",
 		"message": "service is ready to accept traffic",
 	})
@@ -157,8 +157,8 @@ func (h *healthController) Ready(c *gin.Context) {
 //	@Produce		json
 //	@Success		200	{object}	map[string]string	"服务存活"
 //	@Router			/health/live [get]
-func (h *healthController) Live(c *gin.Context) {
-	c.JSON(200, gin.H{
+func (h *healthController) Live(c *echo.Context) {
+	c.JSON(200, map[string]any{
 		"status":  "alive",
 		"message": "service is alive",
 		"uptime":  formatDuration(time.Since(startTime)),
@@ -174,9 +174,9 @@ func (h *healthController) Live(c *gin.Context) {
 //	@Success		200	{object}	map[string]string	"服务已启动"
 //	@Failure		503	{object}	map[string]string	"服务启动中"
 //	@Router			/health/startup [get]
-func (h *healthController) Startup(c *gin.Context) {
+func (h *healthController) Startup(c *echo.Context) {
 	if time.Since(startTime) < 5*time.Second {
-		c.JSON(503, gin.H{
+		c.JSON(503, map[string]any{
 			"status":  "starting",
 			"message": "service is still starting up",
 		})
@@ -188,21 +188,21 @@ func (h *healthController) Startup(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		if err := sqlDB.PingContext(ctx); err != nil {
-			c.JSON(503, gin.H{
+			c.JSON(503, map[string]any{
 				"status":  "starting",
 				"message": "database not ready",
 			})
 			return
 		}
 	} else {
-		c.JSON(503, gin.H{
+		c.JSON(503, map[string]any{
 			"status":  "starting",
 			"message": "database not initialized",
 		})
 		return
 	}
 
-	c.JSON(200, gin.H{
+	c.JSON(200, map[string]any{
 		"status":  "started",
 		"message": "service has started successfully",
 	})

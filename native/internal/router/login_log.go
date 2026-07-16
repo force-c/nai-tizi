@@ -3,12 +3,12 @@ package router
 import (
 	"github.com/gcc798/quick.admin/internal/constants"
 	"github.com/gcc798/quick.admin/internal/controller"
+	"github.com/gcc798/quick.admin/internal/httpx"
 	"github.com/gcc798/quick.admin/internal/middleware"
-	"github.com/gin-gonic/gin"
 )
 
 // registerLoginLogRoutes 注册登录日志路由
-func registerLoginLogRoutes(r *gin.Engine, ctx *RouterContext) {
+func registerLoginLogRoutes(r *httpx.Router, ctx *RouterContext) {
 	loginLogController := controller.NewLoginLogController(ctx.Container)
 
 	// API v1 路由组

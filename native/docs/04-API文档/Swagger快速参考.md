@@ -54,7 +54,7 @@ docs/swagger/swagger.json
 // @Failure      400 {object} Response "参数错误"
 // @Failure      401 {object} Response "未授权"
 // @Router       /path [method]
-func FunctionName(c *gin.Context) {
+func FunctionName(c *echo.Context) {
     // ...
 }
 ```
@@ -150,9 +150,9 @@ import _ "github.com/gcc798/quick.admin/docs/swagger"
 // @Failure      400 {object} response.Response "参数错误"
 // @Failure      401 {object} response.Response "认证失败"
 // @Router       /login [post]
-func (h *authController) Login(c *gin.Context) {
+func (h *authController) Login(c *echo.Context) {
     var req request.LoginRequest
-    if err := c.ShouldBindJSON(&req); err != nil {
+    if err := c.Bind(&req); err != nil {
         response.FailCode(c, response.CodeInvalidParam, "参数错误")
         return
     }

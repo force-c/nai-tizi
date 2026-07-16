@@ -5,7 +5,7 @@ import (
 	"runtime/debug"
 
 	"github.com/gcc798/quick.admin/internal/utils/errors"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v5"
 	"go.uber.org/zap"
 )
 
@@ -43,17 +43,17 @@ type Response struct {
 }
 
 // Success 执行业务逻辑。
-func Success(c *gin.Context, data interface{}) {
+func Success(c *echo.Context, data interface{}) {
 	c.JSON(200, Response{Code: CodeOK, Msg: defaultSuccessMsg, Data: data})
 }
 
 // SuccessWithMsg 执行业务逻辑。
-func SuccessWithMsg(c *gin.Context, msg string, data interface{}) {
+func SuccessWithMsg(c *echo.Context, msg string, data interface{}) {
 	c.JSON(200, Response{Code: CodeOK, Msg: msg, Data: data})
 }
 
 // Fail 执行业务逻辑。
-func Fail(c *gin.Context, msg string) {
+func Fail(c *echo.Context, msg string) {
 	if msg == "" {
 		msg = defaultFailMsg
 	}
@@ -61,40 +61,40 @@ func Fail(c *gin.Context, msg string) {
 }
 
 // FailWithMsg 执行业务逻辑。
-func FailWithMsg(c *gin.Context, msg string) { Fail(c, msg) }
+func FailWithMsg(c *echo.Context, msg string) { Fail(c, msg) }
 
 // BadRequest 执行业务逻辑。
-func BadRequest(c *gin.Context, msg string) {
+func BadRequest(c *echo.Context, msg string) {
 	c.JSON(200, Response{Code: CodeBadRequest, Msg: msg})
 }
 
 // Unauthorized 执行业务逻辑。
-func Unauthorized(c *gin.Context, msg string) {
+func Unauthorized(c *echo.Context, msg string) {
 	c.JSON(200, Response{Code: CodeUnauthorized, Msg: msg})
 }
 
 // Forbidden 执行业务逻辑。
-func Forbidden(c *gin.Context, msg string) {
+func Forbidden(c *echo.Context, msg string) {
 	c.JSON(200, Response{Code: CodeForbidden, Msg: msg})
 }
 
 // NotFound 执行业务逻辑。
-func NotFound(c *gin.Context, msg string) {
+func NotFound(c *echo.Context, msg string) {
 	c.JSON(200, Response{Code: CodeNotFound, Msg: msg})
 }
 
 // InternalServerError 执行业务逻辑。
-func InternalServerError(c *gin.Context, msg string) {
+func InternalServerError(c *echo.Context, msg string) {
 	c.JSON(200, Response{Code: CodeServerError, Msg: msg})
 }
 
 // Error 处理结构化错误（增强版：支持类型区分和日志记录）
-func Error(c *gin.Context, err error) {
+func Error(c *echo.Context, err error) {
 	if appErr, ok := err.(*errors.AppError); ok {
 		// 获取 logger（从 context 中获取，如果没有则使用默认行为）
-		loggerValue, exists := c.Get("logger")
+		loggerValue := c.Get("logger")
 		var logger *zap.Logger
-		if exists {
+		if loggerValue != nil {
 			if l, ok := loggerValue.(*zap.Logger); ok {
 				logger = l
 			}
@@ -108,7 +108,7 @@ func Error(c *gin.Context, err error) {
 				logger.Warn("业务逻辑错误",
 					zap.Int("code", int(appErr.Code)),
 					zap.String("message", appErr.Message),
-					zap.String("path", c.Request.URL.Path))
+					zap.String("path", c.Request().URL.Path))
 			}
 			c.JSON(appErr.HTTPStatus(), Response{
 				Code: int(appErr.Code),
@@ -123,9 +123,9 @@ func Error(c *gin.Context, err error) {
 					zap.Int("code", int(appErr.Code)),
 					zap.String("internal_message", appErr.Message),
 					zap.Error(appErr.RawErr),
-					zap.String("path", c.Request.URL.Path),
-					zap.Any("params", c.Request.URL.Query()),
-					zap.String("method", c.Request.Method))
+					zap.String("path", c.Request().URL.Path),
+					zap.Any("params", c.Request().URL.Query()),
+					zap.String("method", c.Request().Method))
 			}
 			c.JSON(http.StatusInternalServerError, Response{
 				Code: int(appErr.Code),
@@ -140,9 +140,9 @@ func Error(c *gin.Context, err error) {
 					zap.Int("code", int(appErr.Code)),
 					zap.String("internal_message", appErr.Message),
 					zap.Error(appErr.RawErr),
-					zap.String("path", c.Request.URL.Path),
-					zap.Any("params", c.Request.URL.Query()),
-					zap.String("method", c.Request.Method),
+					zap.String("path", c.Request().URL.Path),
+					zap.Any("params", c.Request().URL.Query()),
+					zap.String("method", c.Request().Method),
 					zap.String("stack", string(debug.Stack()))) // 记录堆栈
 			}
 			c.JSON(http.StatusInternalServerError, Response{
@@ -169,12 +169,12 @@ func Error(c *gin.Context, err error) {
 	}
 
 	// 非 AppError 类型（普通 error），按系统错误处理
-	loggerValue, exists := c.Get("logger")
-	if exists {
+	loggerValue := c.Get("logger")
+	if loggerValue != nil {
 		if logger, ok := loggerValue.(*zap.Logger); ok {
 			logger.Error("未捕获的系统错误",
 				zap.Error(err),
-				zap.String("path", c.Request.URL.Path),
+				zap.String("path", c.Request().URL.Path),
 				zap.String("stack", string(debug.Stack())))
 		}
 	}
@@ -187,12 +187,12 @@ func Error(c *gin.Context, err error) {
 }
 
 // SuccessCode 执行业务逻辑。
-func SuccessCode(c *gin.Context, code int, data interface{}) {
+func SuccessCode(c *echo.Context, code int, data interface{}) {
 	c.JSON(200, Response{Code: code, Msg: defaultSuccessMsg, Data: data})
 }
 
 // FailCode 执行业务逻辑。
-func FailCode(c *gin.Context, code int, msg string) { c.JSON(200, Response{Code: code, Msg: msg}) }
+func FailCode(c *echo.Context, code int, msg string) { c.JSON(200, Response{Code: code, Msg: msg}) }
 
 // ValidationFieldError 单个字段验证错误
 type ValidationFieldError struct {
@@ -208,6 +208,6 @@ type ValidationErrorResponse struct {
 }
 
 // FailValidation 返回验证错误（包含字段详情）
-func FailValidation(c *gin.Context, code int, msg string, errors []ValidationFieldError) {
+func FailValidation(c *echo.Context, code int, msg string, errors []ValidationFieldError) {
 	c.JSON(200, ValidationErrorResponse{Code: code, Msg: msg, Errors: errors})
 }

@@ -15,11 +15,13 @@ import (
 	"github.com/gcc798/quick.admin/internal/bootstrap"
 	"github.com/gcc798/quick.admin/internal/config"
 	"github.com/gcc798/quick.admin/internal/container"
+	"github.com/gcc798/quick.admin/internal/httpx"
 	ilogger "github.com/gcc798/quick.admin/internal/logger"
 	"github.com/gcc798/quick.admin/internal/middleware"
 	"github.com/gcc798/quick.admin/internal/router"
 	"github.com/gcc798/quick.admin/internal/validator"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v5"
+	echoMiddleware "github.com/labstack/echo/v5/middleware"
 	"go.uber.org/zap"
 )
 
@@ -93,40 +95,37 @@ func main() {
 
 	// 调度器已由容器内部启动
 
-	// 设置Gin模式
-	if cfg.Env == "production" {
-		gin.SetMode(gin.ReleaseMode)
-	}
-
 	// 初始化HTTP引擎
-	r := gin.New()
+	e := echo.New()
 	//binding.EnableDecoderUseNumber = true
 
 	// 初始化中文验证错误翻译器
 	validator.Init()
+	e.Validator = validator.EchoValidator{}
+	e.Binder = &validator.EchoBinder{}
 
 	// 使用自定义的 Recovery 中间件（支持结构化错误处理）
-	// 注意：这里替换了 gin.Recovery()，提供更强大的错误处理能力
-	r.Use(middleware.Recovery(logger.Get()))
-	r.Use(gin.Logger())
+	// 自定义 Recovery 提供结构化日志和统一错误响应。
+	e.Use(middleware.Recovery(logger.Get()))
+	e.Use(echoMiddleware.RequestLogger())
 
 	// 添加 CORS 中间件（必须在路由注册之前）
-	r.Use(middleware.CORS())
+	e.Use(middleware.CORS())
 
 	// 添加字符串ID转换中间件（处理前端传递的字符串ID）
-	r.Use(middleware.StringIDConverter())
+	e.Use(middleware.StringIDConverter())
 
 	// 添加操作日志中间件（全局记录所有接口访问）
-	r.Use(middleware.OperationLog(c.GetDB(), c.GetLogger()))
+	e.Use(middleware.OperationLog(c.GetDB(), c.GetLogger()))
 
 	// 注册路由
-	router.Setup(r, c, b)
+	router.Setup(httpx.NewRouter(e), c, b)
 
 	// 配置HTTP服务器
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	srv := &http.Server{
 		Addr:           addr,
-		Handler:        r,
+		Handler:        e,
 		ReadTimeout:    30 * time.Second,
 		WriteTimeout:   30 * time.Second,
 		MaxHeaderBytes: 1 << 20, // 1MB

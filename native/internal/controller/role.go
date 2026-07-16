@@ -10,25 +10,25 @@ import (
 	"github.com/gcc798/quick.admin/internal/logger"
 	"github.com/gcc798/quick.admin/internal/service"
 	_ "github.com/gcc798/quick.admin/internal/utils/pagination"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v5"
 	"go.uber.org/zap"
 )
 
 // RoleController 角色控制器接口
 type RoleController interface {
-	CreateRole(ctx *gin.Context)          // 创建角色
-	UpdateRole(ctx *gin.Context)          // 更新角色
-	DeleteRole(ctx *gin.Context)          // 删除角色
-	GetRole(ctx *gin.Context)             // 获取角色详情
-	PageRole(ctx *gin.Context)            // 分页查询角色列表
-	AssignRoleToUser(ctx *gin.Context)    // 为用户分配角色
-	RemoveRoleFromUser(ctx *gin.Context)  // 移除用户的角色
-	GetUserRoles(ctx *gin.Context)        // 获取用户的所有角色
-	GetRoleUsers(ctx *gin.Context)        // 获取角色下的用户
-	AssignUsersToRole(ctx *gin.Context)   // 批量为角色添加用户
-	RemoveUsersFromRole(ctx *gin.Context) // 批量移除角色下的用户
-	GetRoleMenus(ctx *gin.Context)        // 获取角色菜单
-	AssignRoleMenus(ctx *gin.Context)     // 分配角色菜单
+	CreateRole(ctx *echo.Context)          // 创建角色
+	UpdateRole(ctx *echo.Context)          // 更新角色
+	DeleteRole(ctx *echo.Context)          // 删除角色
+	GetRole(ctx *echo.Context)             // 获取角色详情
+	PageRole(ctx *echo.Context)            // 分页查询角色列表
+	AssignRoleToUser(ctx *echo.Context)    // 为用户分配角色
+	RemoveRoleFromUser(ctx *echo.Context)  // 移除用户的角色
+	GetUserRoles(ctx *echo.Context)        // 获取用户的所有角色
+	GetRoleUsers(ctx *echo.Context)        // 获取角色下的用户
+	AssignUsersToRole(ctx *echo.Context)   // 批量为角色添加用户
+	RemoveUsersFromRole(ctx *echo.Context) // 批量移除角色下的用户
+	GetRoleMenus(ctx *echo.Context)        // 获取角色菜单
+	AssignRoleMenus(ctx *echo.Context)     // 分配角色菜单
 }
 
 type roleController struct {
@@ -56,14 +56,14 @@ func NewRoleController(c container.Container) RoleController {
 //	@Success		200				{object}	response.Response{data=model.Role}
 //	@Failure		400				{object}	response.Response	"参数错误"
 //	@Router			/api/v1/role [post]
-func (c *roleController) CreateRole(ctx *gin.Context) {
+func (c *roleController) CreateRole(ctx *echo.Context) {
 	var req request.CreateRoleRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "参数错误: "+err.Error())
 		return
 	}
 
-	userId, _ := ctx.Get("userId")
+	userId := ctx.Get("userId")
 
 	role := &model.Role{
 		RoleKey:   req.RoleKey,
@@ -76,7 +76,7 @@ func (c *roleController) CreateRole(ctx *gin.Context) {
 	}
 	role.CreateBy = userId.(int64)
 
-	if err := c.roleService.Create(ctx.Request.Context(), role); err != nil {
+	if err := c.roleService.Create(ctx.Request().Context(), role); err != nil {
 		c.logger.Error("创建角色失败", zap.Error(err))
 		response.InternalServerError(ctx, "创建角色失败: "+err.Error())
 		return
@@ -98,7 +98,7 @@ func (c *roleController) CreateRole(ctx *gin.Context) {
 //	@Success		200				{object}	response.Response
 //	@Failure		400				{object}	response.Response	"参数错误"
 //	@Router			/api/v1/role/{roleId} [put]
-func (c *roleController) UpdateRole(ctx *gin.Context) {
+func (c *roleController) UpdateRole(ctx *echo.Context) {
 	roleIdStr := ctx.Param("roleId")
 	roleId, err := strconv.ParseInt(roleIdStr, 10, 64)
 	if err != nil {
@@ -107,13 +107,13 @@ func (c *roleController) UpdateRole(ctx *gin.Context) {
 	}
 
 	var req request.UpdateRoleRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "参数错误: "+err.Error())
 		return
 	}
 	req.RoleId = roleId
 
-	userId, _ := ctx.Get("userId")
+	userId := ctx.Get("userId")
 
 	role := &model.Role{
 		ID:        req.RoleId,
@@ -125,7 +125,7 @@ func (c *roleController) UpdateRole(ctx *gin.Context) {
 	}
 	role.UpdateBy = userId.(int64)
 
-	if err := c.roleService.Update(ctx.Request.Context(), role); err != nil {
+	if err := c.roleService.Update(ctx.Request().Context(), role); err != nil {
 		c.logger.Error("更新角色失败", zap.Error(err))
 		response.InternalServerError(ctx, "更新角色失败: "+err.Error())
 		return
@@ -146,7 +146,7 @@ func (c *roleController) UpdateRole(ctx *gin.Context) {
 //	@Success		200				{object}	response.Response
 //	@Failure		400				{object}	response.Response	"参数错误"
 //	@Router			/api/v1/role/{roleId} [delete]
-func (c *roleController) DeleteRole(ctx *gin.Context) {
+func (c *roleController) DeleteRole(ctx *echo.Context) {
 	roleIdStr := ctx.Param("roleId")
 	roleId, err := strconv.ParseInt(roleIdStr, 10, 64)
 	if err != nil {
@@ -154,7 +154,7 @@ func (c *roleController) DeleteRole(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.roleService.Delete(ctx.Request.Context(), roleId); err != nil {
+	if err := c.roleService.Delete(ctx.Request().Context(), roleId); err != nil {
 		c.logger.Error("删除角色失败", zap.Error(err))
 		response.InternalServerError(ctx, "删除角色失败: "+err.Error())
 		return
@@ -175,7 +175,7 @@ func (c *roleController) DeleteRole(ctx *gin.Context) {
 //	@Success		200				{object}	response.Response{data=model.Role}
 //	@Failure		400				{object}	response.Response	"参数错误"
 //	@Router			/api/v1/role/{roleId} [get]
-func (c *roleController) GetRole(ctx *gin.Context) {
+func (c *roleController) GetRole(ctx *echo.Context) {
 	roleIdStr := ctx.Param("roleId")
 	roleId, err := strconv.ParseInt(roleIdStr, 10, 64)
 	if err != nil {
@@ -183,7 +183,7 @@ func (c *roleController) GetRole(ctx *gin.Context) {
 		return
 	}
 
-	role, err := c.roleService.GetById(ctx.Request.Context(), roleId)
+	role, err := c.roleService.GetById(ctx.Request().Context(), roleId)
 	if err != nil {
 		c.logger.Error("获取角色详情失败", zap.Error(err))
 		response.InternalServerError(ctx, "获取角色详情失败: "+err.Error())
@@ -204,14 +204,14 @@ func (c *roleController) GetRole(ctx *gin.Context) {
 //	@Param			body			body		request.PageRoleRequest	true	"查询参数"
 //	@Success		200				{object}	response.Response{data=object}
 //	@Router			/api/v1/role/page [post]
-func (c *roleController) PageRole(ctx *gin.Context) {
+func (c *roleController) PageRole(ctx *echo.Context) {
 	var req request.PageRoleRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "参数错误: "+err.Error())
 		return
 	}
 
-	page, err := c.roleService.Page(ctx.Request.Context(), req.PageNum, req.PageSize, req.RoleName, req.Status)
+	page, err := c.roleService.Page(ctx.Request().Context(), req.PageNum, req.PageSize, req.RoleName, req.Status)
 	if err != nil {
 		c.logger.Error("分页查询角色列表失败", zap.Error(err))
 		response.InternalServerError(ctx, "分页查询角色列表失败: "+err.Error())
@@ -233,14 +233,14 @@ func (c *roleController) PageRole(ctx *gin.Context) {
 //	@Success		200				{object}	response.Response
 //	@Failure		400				{object}	response.Response	"参数错误"
 //	@Router			/api/v1/role/assign [post]
-func (c *roleController) AssignRoleToUser(ctx *gin.Context) {
+func (c *roleController) AssignRoleToUser(ctx *echo.Context) {
 	var req request.AssignRoleToUserRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "参数错误: "+err.Error())
 		return
 	}
 
-	if err := c.roleService.AssignRoleToUser(ctx.Request.Context(), req.UserId.Int64(), req.RoleId.Int64()); err != nil {
+	if err := c.roleService.AssignRoleToUser(ctx.Request().Context(), req.UserId.Int64(), req.RoleId.Int64()); err != nil {
 		c.logger.Error("为用户分配角色失败", zap.Error(err))
 		response.InternalServerError(ctx, "为用户分配角色失败: "+err.Error())
 		return
@@ -262,9 +262,9 @@ func (c *roleController) AssignRoleToUser(ctx *gin.Context) {
 //	@Success		200				{object}	response.Response
 //	@Failure		400				{object}	response.Response	"参数错误"
 //	@Router			/api/v1/role/remove [delete]
-func (c *roleController) RemoveRoleFromUser(ctx *gin.Context) {
-	userIdStr := ctx.Query("userId")
-	roleIdStr := ctx.Query("roleId")
+func (c *roleController) RemoveRoleFromUser(ctx *echo.Context) {
+	userIdStr := ctx.QueryParam("userId")
+	roleIdStr := ctx.QueryParam("roleId")
 
 	userId, err := strconv.ParseInt(userIdStr, 10, 64)
 	if err != nil {
@@ -277,7 +277,7 @@ func (c *roleController) RemoveRoleFromUser(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.roleService.RemoveRoleFromUser(ctx.Request.Context(), userId, roleId); err != nil {
+	if err := c.roleService.RemoveRoleFromUser(ctx.Request().Context(), userId, roleId); err != nil {
 		c.logger.Error("移除用户角色失败", zap.Error(err))
 		response.InternalServerError(ctx, "移除用户角色失败: "+err.Error())
 		return
@@ -298,8 +298,8 @@ func (c *roleController) RemoveRoleFromUser(ctx *gin.Context) {
 //	@Success		200				{object}	response.Response{data=[]model.Role}
 //	@Failure		400				{object}	response.Response	"参数错误"
 //	@Router			/api/v1/role/user [get]
-func (c *roleController) GetUserRoles(ctx *gin.Context) {
-	userIdStr := ctx.Query("userId")
+func (c *roleController) GetUserRoles(ctx *echo.Context) {
+	userIdStr := ctx.QueryParam("userId")
 
 	userId, err := strconv.ParseInt(userIdStr, 10, 64)
 	if err != nil {
@@ -307,7 +307,7 @@ func (c *roleController) GetUserRoles(ctx *gin.Context) {
 		return
 	}
 
-	roles, err := c.roleService.GetUserRoles(ctx.Request.Context(), userId)
+	roles, err := c.roleService.GetUserRoles(ctx.Request().Context(), userId)
 	if err != nil {
 		c.logger.Error("获取用户角色失败", zap.Error(err))
 		response.InternalServerError(ctx, "获取用户角色失败: "+err.Error())
@@ -318,14 +318,14 @@ func (c *roleController) GetUserRoles(ctx *gin.Context) {
 }
 
 // GetRoleUsers 获取角色下的用户
-func (c *roleController) GetRoleUsers(ctx *gin.Context) {
+func (c *roleController) GetRoleUsers(ctx *echo.Context) {
 	roleId, err := strconv.ParseInt(ctx.Param("roleId"), 10, 64)
 	if err != nil {
 		response.BadRequest(ctx, "角色ID格式错误")
 		return
 	}
 
-	users, err := c.roleService.GetRoleUsers(ctx.Request.Context(), roleId)
+	users, err := c.roleService.GetRoleUsers(ctx.Request().Context(), roleId)
 	if err != nil {
 		c.logger.Error("获取角色用户失败", zap.Error(err))
 		response.InternalServerError(ctx, "获取角色用户失败: "+err.Error())
@@ -336,7 +336,7 @@ func (c *roleController) GetRoleUsers(ctx *gin.Context) {
 }
 
 // AssignUsersToRole 批量为角色添加用户
-func (c *roleController) AssignUsersToRole(ctx *gin.Context) {
+func (c *roleController) AssignUsersToRole(ctx *echo.Context) {
 	roleId, err := strconv.ParseInt(ctx.Param("roleId"), 10, 64)
 	if err != nil {
 		response.BadRequest(ctx, "角色ID格式错误")
@@ -344,12 +344,12 @@ func (c *roleController) AssignUsersToRole(ctx *gin.Context) {
 	}
 
 	var req request.BatchRoleUsersRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "参数错误: "+err.Error())
 		return
 	}
 
-	if err := c.roleService.AssignUsersToRole(ctx.Request.Context(), roleId, toInt64IDs(req.UserIds), currentUserId(ctx)); err != nil {
+	if err := c.roleService.AssignUsersToRole(ctx.Request().Context(), roleId, toInt64IDs(req.UserIds), currentUserId(ctx)); err != nil {
 		c.logger.Error("批量为角色添加用户失败", zap.Error(err))
 		response.InternalServerError(ctx, "批量为角色添加用户失败: "+err.Error())
 		return
@@ -359,7 +359,7 @@ func (c *roleController) AssignUsersToRole(ctx *gin.Context) {
 }
 
 // RemoveUsersFromRole 批量移除角色下的用户
-func (c *roleController) RemoveUsersFromRole(ctx *gin.Context) {
+func (c *roleController) RemoveUsersFromRole(ctx *echo.Context) {
 	roleId, err := strconv.ParseInt(ctx.Param("roleId"), 10, 64)
 	if err != nil {
 		response.BadRequest(ctx, "角色ID格式错误")
@@ -367,12 +367,12 @@ func (c *roleController) RemoveUsersFromRole(ctx *gin.Context) {
 	}
 
 	var req request.BatchRoleUsersRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "参数错误: "+err.Error())
 		return
 	}
 
-	if err := c.roleService.RemoveUsersFromRole(ctx.Request.Context(), roleId, toInt64IDs(req.UserIds)); err != nil {
+	if err := c.roleService.RemoveUsersFromRole(ctx.Request().Context(), roleId, toInt64IDs(req.UserIds)); err != nil {
 		c.logger.Error("批量移除角色用户失败", zap.Error(err))
 		response.InternalServerError(ctx, "批量移除角色用户失败: "+err.Error())
 		return
@@ -390,14 +390,14 @@ func toInt64IDs(ids []request.Int64ID) []int64 {
 }
 
 // GetRoleMenus 获取角色菜单 ID 列表
-func (c *roleController) GetRoleMenus(ctx *gin.Context) {
+func (c *roleController) GetRoleMenus(ctx *echo.Context) {
 	roleIdStr := ctx.Param("roleId")
 	roleId, err := strconv.ParseInt(roleIdStr, 10, 64)
 	if err != nil {
 		response.BadRequest(ctx, "角色ID格式错误")
 		return
 	}
-	menus, err := c.roleService.GetRoleMenus(ctx.Request.Context(), roleId)
+	menus, err := c.roleService.GetRoleMenus(ctx.Request().Context(), roleId)
 	if err != nil {
 		c.logger.Error("获取角色菜单失败", zap.Error(err))
 		response.InternalServerError(ctx, "获取角色菜单失败: "+err.Error())
@@ -411,7 +411,7 @@ func (c *roleController) GetRoleMenus(ctx *gin.Context) {
 }
 
 // AssignRoleMenus 分配角色菜单
-func (c *roleController) AssignRoleMenus(ctx *gin.Context) {
+func (c *roleController) AssignRoleMenus(ctx *echo.Context) {
 	roleIdStr := ctx.Param("roleId")
 	roleId, err := strconv.ParseInt(roleIdStr, 10, 64)
 	if err != nil {
@@ -419,11 +419,11 @@ func (c *roleController) AssignRoleMenus(ctx *gin.Context) {
 		return
 	}
 	var req request.AssignRoleMenusRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "参数错误: "+err.Error())
 		return
 	}
-	if err := c.roleService.AssignMenusToRole(ctx.Request.Context(), roleId, toInt64IDs(req.MenuIds)); err != nil {
+	if err := c.roleService.AssignMenusToRole(ctx.Request().Context(), roleId, toInt64IDs(req.MenuIds)); err != nil {
 		c.logger.Error("分配角色菜单失败", zap.Error(err))
 		response.InternalServerError(ctx, "分配角色菜单失败: "+err.Error())
 		return

@@ -3,12 +3,12 @@ package router
 import (
 	"github.com/gcc798/quick.admin/internal/constants"
 	"github.com/gcc798/quick.admin/internal/controller"
+	"github.com/gcc798/quick.admin/internal/httpx"
 	"github.com/gcc798/quick.admin/internal/middleware"
-	"github.com/gin-gonic/gin"
 )
 
 // registerOperLogRoutes 注册操作日志路由
-func registerOperLogRoutes(r *gin.Engine, ctx *RouterContext) {
+func registerOperLogRoutes(r *httpx.Router, ctx *RouterContext) {
 	operLogController := controller.NewOperLogController(ctx.Container)
 
 	// API v1 路由组

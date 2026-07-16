@@ -3,131 +3,83 @@ package middleware
 import (
 	"github.com/gcc798/quick.admin/internal/domain/response"
 	"github.com/gcc798/quick.admin/internal/service"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v5"
 )
 
-// Permission 权限检查中间件
-// 使用方式:
-// 1. 单个权限检查: Permission(permissionService, "user.create")
-// 2. 通配符权限: Permission(permissionService, "user.*") - 用户模块所有权限
-// 3. 只读权限: Permission(permissionService, "*.read") - 所有模块的读权限
-//
-// 资源格式: "resource.action"，例如 "org.read", "org.create"
-// action 从资源字符串中自动解析: *.read = read 操作, 其他 = write 操作
-//
-// 注意: 此中间件必须在 Auth 中间件之后使用，因为需要从 context 中获取 userId
-func Permission(permissionService service.PermissionService, resource string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// 从 context 获取用户信息（由 Auth 中间件设置）
-		userIdVal, exists := c.Get("userId")
-		if !exists {
-			response.Forbidden(c, "用户信息不存在")
-			c.Abort()
-			return
-		}
-		userId, ok := userIdVal.(int64)
-		if !ok {
-			response.Forbidden(c, "用户ID格式错误")
-			c.Abort()
-			return
-		}
-		// 从资源字符串中解析 action
-		// 格式: "resource.action"，例如 "org.read", "org.create"
-		// *.read = read 操作, 其他 = write 操作
-		action := "write"
-		if len(resource) > 5 && resource[len(resource)-5:] == ".read" {
-			action = "read"
-		}
-
-		// 检查权限
-		allowed, err := permissionService.CheckPermission(c.Request.Context(), userId, resource, action)
-		if err != nil {
-			response.InternalServerError(c, "权限检查失败: "+err.Error())
-			c.Abort()
-			return
-		}
-
-		if !allowed {
-			response.Forbidden(c, "无权限访问")
-			c.Abort()
-			return
-		}
-
-		c.Next()
-	}
-}
-
-// PermissionAny 任意权限检查中间件（满足其中一个权限即可）
-// 使用方式: PermissionAny(permissionService, []string{"user.read", "user.create"})
-func PermissionAny(permissionService service.PermissionService, resources []string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		userIdVal, exists := c.Get("userId")
-		if !exists {
-			response.Forbidden(c, "用户信息不存在")
-			c.Abort()
-			return
-		}
-		userId, ok := userIdVal.(int64)
-		if !ok {
-			response.Forbidden(c, "用户ID格式错误")
-			c.Abort()
-			return
-		}
-		// 检查是否满足任意一个权限
-		for _, resource := range resources {
-			// 从资源字符串中解析 action
-			action := "write"
-			if len(resource) > 5 && resource[len(resource)-5:] == ".read" {
-				action = "read"
+// Permission checks one API permission after authentication.
+func Permission(permissionService service.PermissionService, resource string) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			userID, ok := contextUserID(c)
+			if !ok {
+				response.Forbidden(c, "用户信息不存在")
+				return nil
 			}
-
-			allowed, err := permissionService.CheckPermission(c.Request.Context(), userId, resource, action)
+			allowed, err := permissionService.CheckPermission(c.Request().Context(), userID, resource, resourceAction(resource))
 			if err != nil {
-				continue
+				response.InternalServerError(c, "权限检查失败: "+err.Error())
+				return nil
 			}
-			if allowed {
-				c.Next()
-				return
+			if !allowed {
+				response.Forbidden(c, "无权限访问")
+				return nil
 			}
+			return next(c)
 		}
-
-		response.Forbidden(c, "无权限访问")
-		c.Abort()
 	}
 }
 
-// PermissionAll 所有权限检查中间件（必须满足所有权限）
-// 使用方式: PermissionAll(permissionService, []string{"user.read", "user.update"})
-func PermissionAll(permissionService service.PermissionService, resources []string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		userIdVal, exists := c.Get("userId")
-		if !exists {
-			response.Forbidden(c, "用户信息不存在")
-			c.Abort()
-			return
-		}
-		userId, ok := userIdVal.(int64)
-		if !ok {
-			response.Forbidden(c, "用户ID格式错误")
-			c.Abort()
-			return
-		}
-		// 检查是否满足所有权限
-		for _, resource := range resources {
-			// 从资源字符串中解析 action
-			action := "write"
-			if len(resource) > 5 && resource[len(resource)-5:] == ".read" {
-				action = "read"
+// PermissionAny allows the request when any resource is granted.
+func PermissionAny(permissionService service.PermissionService, resources []string) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			userID, ok := contextUserID(c)
+			if !ok {
+				response.Forbidden(c, "用户信息不存在")
+				return nil
 			}
-
-			allowed, err := permissionService.CheckPermission(c.Request.Context(), userId, resource, action)
-			if err != nil || !allowed {
-				response.Forbidden(c, "无权限访问")
-				c.Abort()
-				return
+			for _, resource := range resources {
+				allowed, err := permissionService.CheckPermission(c.Request().Context(), userID, resource, resourceAction(resource))
+				if err == nil && allowed {
+					return next(c)
+				}
 			}
+			response.Forbidden(c, "无权限访问")
+			return nil
 		}
-
-		c.Next()
 	}
+}
+
+// PermissionAll requires every resource to be granted.
+func PermissionAll(permissionService service.PermissionService, resources []string) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			userID, ok := contextUserID(c)
+			if !ok {
+				response.Forbidden(c, "用户信息不存在")
+				return nil
+			}
+			for _, resource := range resources {
+				allowed, err := permissionService.CheckPermission(c.Request().Context(), userID, resource, resourceAction(resource))
+				if err != nil || !allowed {
+					response.Forbidden(c, "无权限访问")
+					return nil
+				}
+			}
+			return next(c)
+		}
+	}
+}
+
+func contextUserID(c *echo.Context) (int64, bool) {
+	value := c.Get("userId")
+	userID, ok := value.(int64)
+	return userID, ok
+}
+
+func resourceAction(resource string) string {
+	if len(resource) > 5 && resource[len(resource)-5:] == ".read" {
+		return "read"
+	}
+	return "write"
 }

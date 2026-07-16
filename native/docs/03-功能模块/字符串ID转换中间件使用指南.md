@@ -19,7 +19,7 @@ const idStr = "9007199254740992";
 
 ### 后端解析问题
 
-当前端发送字符串ID时，Gin的JSON绑定会失败：
+当前端发送字符串ID时，Echo的JSON绑定会失败：
 
 ```json
 // 前端发送
@@ -167,7 +167,7 @@ r.POST("/api/v1/user", middleware.StringIDConverter(), handler)
 ### 获取路径参数ID
 
 ```go
-func (h *UserController) GetById(c *gin.Context) {
+func (h *UserController) GetById(c *echo.Context) {
     // 方式1：使用工具函数（推荐）
     userId, err := utils.ParseInt64Param(c, "id", "required")
     if err != nil {
@@ -186,16 +186,16 @@ func (h *UserController) GetById(c *gin.Context) {
 ### JSON请求体绑定
 
 ```go
-func (h *UserController) BatchDelete(c *gin.Context) {
+func (h *UserController) BatchDelete(c *echo.Context) {
     var req request.BatchDeleteUsersRequest
     // 中间件已经将字符串ID转换为数字，直接绑定即可
-    if err := c.ShouldBindJSON(&req); err != nil {
+    if err := c.Bind(&req); err != nil {
         response.FailCode(c, response.CodeInvalidParam, "参数错误: "+err.Error())
         return
     }
     
     // req.IDs 已经是 []int64 类型
-    if err := h.userService.BatchDelete(c.Request.Context(), req.IDs); err != nil {
+    if err := h.userService.BatchDelete(c.Request().Context(), req.IDs); err != nil {
         response.FailWithMsg(c, err.Error())
         return
     }

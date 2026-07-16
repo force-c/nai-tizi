@@ -8,18 +8,18 @@ import (
 	"github.com/gcc798/quick.admin/internal/domain/response"
 	"github.com/gcc798/quick.admin/internal/service"
 	_ "github.com/gcc798/quick.admin/internal/utils/pagination"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v5"
 )
 
 // LoginLogController 定义业务数据结构。
 type LoginLogController interface {
-	CreateLoginLog(ctx *gin.Context)      // 创建登录日志
-	UpdateLoginLog(ctx *gin.Context)      // 更新登录日志
-	DeleteLoginLog(ctx *gin.Context)      // 删除登录日志
-	BatchDeleteLoginLog(ctx *gin.Context) // 批量删除登录日志
-	GetLoginLogById(ctx *gin.Context)     // 根据ID查询登录日志
-	PageLoginLog(ctx *gin.Context)        // 分页查询登录日志列表
-	CleanLoginLog(ctx *gin.Context)       // 清理登录日志
+	CreateLoginLog(ctx *echo.Context)      // 创建登录日志
+	UpdateLoginLog(ctx *echo.Context)      // 更新登录日志
+	DeleteLoginLog(ctx *echo.Context)      // 删除登录日志
+	BatchDeleteLoginLog(ctx *echo.Context) // 批量删除登录日志
+	GetLoginLogById(ctx *echo.Context)     // 根据ID查询登录日志
+	PageLoginLog(ctx *echo.Context)        // 分页查询登录日志列表
+	CleanLoginLog(ctx *echo.Context)       // 清理登录日志
 }
 
 type loginLogController struct {
@@ -48,14 +48,14 @@ func NewLoginLogController(c container.Container) LoginLogController {
 //	@Failure		500		{object}	response.Response				"服务器内部错误"
 //	@Router			/api/v1/loginLog [post]
 //	@Security		Bearer
-func (c *loginLogController) CreateLoginLog(ctx *gin.Context) {
+func (c *loginLogController) CreateLoginLog(ctx *echo.Context) {
 	var req request.CreateLoginLogRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
 
-	if err := c.loginLogService.Create(ctx.Request.Context(), &req); err != nil {
+	if err := c.loginLogService.Create(ctx.Request().Context(), &req); err != nil {
 		response.Fail(ctx, err.Error())
 		return
 	}
@@ -76,14 +76,14 @@ func (c *loginLogController) CreateLoginLog(ctx *gin.Context) {
 //	@Failure		500		{object}	response.Response				"服务器内部错误"
 //	@Router			/api/v1/loginLog [put]
 //	@Security		Bearer
-func (c *loginLogController) UpdateLoginLog(ctx *gin.Context) {
+func (c *loginLogController) UpdateLoginLog(ctx *echo.Context) {
 	var req request.UpdateLoginLogRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
 
-	if err := c.loginLogService.Update(ctx.Request.Context(), &req); err != nil {
+	if err := c.loginLogService.Update(ctx.Request().Context(), &req); err != nil {
 		response.Fail(ctx, err.Error())
 		return
 	}
@@ -104,7 +104,7 @@ func (c *loginLogController) UpdateLoginLog(ctx *gin.Context) {
 //	@Failure		500	{object}	response.Response	"服务器内部错误"
 //	@Router			/api/v1/loginLog/{id} [delete]
 //	@Security		Bearer
-func (c *loginLogController) DeleteLoginLog(ctx *gin.Context) {
+func (c *loginLogController) DeleteLoginLog(ctx *echo.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -112,7 +112,7 @@ func (c *loginLogController) DeleteLoginLog(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.loginLogService.Delete(ctx.Request.Context(), id); err != nil {
+	if err := c.loginLogService.Delete(ctx.Request().Context(), id); err != nil {
 		response.Fail(ctx, err.Error())
 		return
 	}
@@ -133,14 +133,14 @@ func (c *loginLogController) DeleteLoginLog(ctx *gin.Context) {
 //	@Failure		500		{object}	response.Response					"服务器内部错误"
 //	@Router			/api/v1/loginLog/batch [delete]
 //	@Security		Bearer
-func (c *loginLogController) BatchDeleteLoginLog(ctx *gin.Context) {
+func (c *loginLogController) BatchDeleteLoginLog(ctx *echo.Context) {
 	var req request.BatchDeleteLoginLogRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
 
-	if err := c.loginLogService.BatchDelete(ctx.Request.Context(), req.IDs); err != nil {
+	if err := c.loginLogService.BatchDelete(ctx.Request().Context(), req.IDs); err != nil {
 		response.Fail(ctx, err.Error())
 		return
 	}
@@ -161,7 +161,7 @@ func (c *loginLogController) BatchDeleteLoginLog(ctx *gin.Context) {
 //	@Failure		500	{object}	response.Response									"服务器内部错误"
 //	@Router			/api/v1/loginLog/{id} [get]
 //	@Security		Bearer
-func (c *loginLogController) GetLoginLogById(ctx *gin.Context) {
+func (c *loginLogController) GetLoginLogById(ctx *echo.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -169,7 +169,7 @@ func (c *loginLogController) GetLoginLogById(ctx *gin.Context) {
 		return
 	}
 
-	log, err := c.loginLogService.GetById(ctx.Request.Context(), id)
+	log, err := c.loginLogService.GetById(ctx.Request().Context(), id)
 	if err != nil {
 		response.Fail(ctx, err.Error())
 		return
@@ -199,14 +199,14 @@ func (c *loginLogController) GetLoginLogById(ctx *gin.Context) {
 //	@Failure		500				{object}	response.Response	"服务器内部错误"
 //	@Router			/api/v1/system/loginLog/page [post]
 //	@Security		Bearer
-func (c *loginLogController) PageLoginLog(ctx *gin.Context) {
+func (c *loginLogController) PageLoginLog(ctx *echo.Context) {
 	var req request.PageLoginLogRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
 
-	page, err := c.loginLogService.Page(ctx.Request.Context(), &req)
+	page, err := c.loginLogService.Page(ctx.Request().Context(), &req)
 	if err != nil {
 		response.Fail(ctx, err.Error())
 		return
@@ -228,14 +228,14 @@ func (c *loginLogController) PageLoginLog(ctx *gin.Context) {
 //	@Failure		500		{object}	response.Response				"服务器内部错误"
 //	@Router			/api/v1/loginLog/clean [post]
 //	@Security		Bearer
-func (c *loginLogController) CleanLoginLog(ctx *gin.Context) {
+func (c *loginLogController) CleanLoginLog(ctx *echo.Context) {
 	var req request.CleanLoginLogRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
 
-	count, err := c.loginLogService.CleanOldLogs(ctx.Request.Context(), req.Days)
+	count, err := c.loginLogService.CleanOldLogs(ctx.Request().Context(), req.Days)
 	if err != nil {
 		response.Fail(ctx, err.Error())
 		return

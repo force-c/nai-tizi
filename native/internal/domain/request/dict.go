@@ -40,8 +40,8 @@ type PageDictRequest struct {
 
 // GetDictByTypeRequest 根据类型获取字典请求
 type GetDictByTypeRequest struct {
-	DictType string `form:"dictType" binding:"required" msg:"字典类型不能为空"` // 字典类型
-	ParentId *int64 `form:"parentId"`                                   // 父字典ID（可选，用于获取子字典）
+	DictType string `form:"dictType" query:"dictType" binding:"required" msg:"字典类型不能为空"` // 字典类型
+	ParentId *int64 `form:"parentId" query:"parentId"`                                   // 父字典ID（可选，用于获取子字典）
 }
 
 // BatchDeleteDictRequest 批量删除字典请求

@@ -8,19 +8,19 @@ import (
 	"github.com/gcc798/quick.admin/internal/utils"
 	_ "github.com/gcc798/quick.admin/internal/utils/pagination"
 	"github.com/gcc798/quick.admin/internal/validator"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v5"
 	"go.uber.org/zap"
 )
 
 // OrgController 组织控制器接口
 type OrgController interface {
-	Create(c *gin.Context)      // 创建组织
-	Update(c *gin.Context)      // 更新组织
-	Delete(c *gin.Context)      // 删除组织
-	BatchDelete(c *gin.Context) // 批量删除组织
-	GetById(c *gin.Context)     // 根据ID查询组织
-	GetTree(c *gin.Context)     // 获取组织树
-	PageOrg(c *gin.Context)     // 分页查询组织列表
+	Create(c *echo.Context)      // 创建组织
+	Update(c *echo.Context)      // 更新组织
+	Delete(c *echo.Context)      // 删除组织
+	BatchDelete(c *echo.Context) // 批量删除组织
+	GetById(c *echo.Context)     // 根据ID查询组织
+	GetTree(c *echo.Context)     // 获取组织树
+	PageOrg(c *echo.Context)     // 分页查询组织列表
 }
 
 type orgController struct {
@@ -53,9 +53,9 @@ func NewOrgController(c container.Container) OrgController {
 //	@Failure		500				{object}	response.Response				"服务器错误"
 //	@Router			/api/v1/org [post]
 //	@Security		Bearer
-func (h *orgController) Create(c *gin.Context) {
+func (h *orgController) Create(c *echo.Context) {
 	var req request.CreateOrgRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.Bind(&req); err != nil {
 		response.FailCode(c, response.CodeInvalidParam, validator.TranslateValidationError(err))
 		return
 	}
@@ -64,7 +64,7 @@ func (h *orgController) Create(c *gin.Context) {
 	req.CreateBy = currentUserId
 	req.UpdateBy = currentUserId
 
-	orgId, err := h.orgService.Create(c.Request.Context(), &req)
+	orgId, err := h.orgService.Create(c.Request().Context(), &req)
 	if err != nil {
 		h.ctr.GetLogger().Error("创建组织失败", zap.Error(err))
 		response.FailWithMsg(c, err.Error())
@@ -91,7 +91,7 @@ func (h *orgController) Create(c *gin.Context) {
 //	@Failure		500				{object}	response.Response				"服务器错误"
 //	@Router			/api/v1/org/{id} [put]
 //	@Security		Bearer
-func (h *orgController) Update(c *gin.Context) {
+func (h *orgController) Update(c *echo.Context) {
 	orgId, err := utils.ParseInt64Param(c, "id", "required")
 	if err != nil {
 		response.FailCode(c, response.CodeInvalidParam, err.Error())
@@ -99,7 +99,7 @@ func (h *orgController) Update(c *gin.Context) {
 	}
 
 	var req request.UpdateOrgRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.Bind(&req); err != nil {
 		response.FailCode(c, response.CodeInvalidParam, validator.TranslateValidationError(err))
 		return
 	}
@@ -108,7 +108,7 @@ func (h *orgController) Update(c *gin.Context) {
 	currentUserId, _ := h.base.GetUserId(c)
 	req.UpdateBy = currentUserId
 
-	if err := h.orgService.Update(c.Request.Context(), &req); err != nil {
+	if err := h.orgService.Update(c.Request().Context(), &req); err != nil {
 		h.ctr.GetLogger().Error("更新组织失败", zap.Error(err))
 		response.FailWithMsg(c, err.Error())
 		return
@@ -133,14 +133,14 @@ func (h *orgController) Update(c *gin.Context) {
 //	@Failure		500				{object}	response.Response				"服务器错误"
 //	@Router			/api/v1/org/{id} [delete]
 //	@Security		Bearer
-func (h *orgController) Delete(c *gin.Context) {
+func (h *orgController) Delete(c *echo.Context) {
 	orgId, err := utils.ParseInt64Param(c, "id", "required")
 	if err != nil {
 		response.FailCode(c, response.CodeInvalidParam, err.Error())
 		return
 	}
 
-	if err := h.orgService.Delete(c.Request.Context(), orgId); err != nil {
+	if err := h.orgService.Delete(c.Request().Context(), orgId); err != nil {
 		h.ctr.GetLogger().Error("删除组织失败", zap.Error(err))
 		response.FailWithMsg(c, err.Error())
 		return
@@ -164,14 +164,14 @@ func (h *orgController) Delete(c *gin.Context) {
 //	@Failure		500				{object}	response.Response				"服务器错误"
 //	@Router			/api/v1/org/batch [delete]
 //	@Security		Bearer
-func (h *orgController) BatchDelete(c *gin.Context) {
+func (h *orgController) BatchDelete(c *echo.Context) {
 	var req request.BatchDeleteOrgsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.Bind(&req); err != nil {
 		response.FailCode(c, response.CodeInvalidParam, validator.TranslateValidationError(err))
 		return
 	}
 
-	if err := h.orgService.BatchDelete(c.Request.Context(), req.IDs); err != nil {
+	if err := h.orgService.BatchDelete(c.Request().Context(), req.IDs); err != nil {
 		h.ctr.GetLogger().Error("批量删除组织失败", zap.Error(err))
 		response.FailWithMsg(c, err.Error())
 		return
@@ -196,14 +196,14 @@ func (h *orgController) BatchDelete(c *gin.Context) {
 //	@Failure		500				{object}	response.Response				"服务器错误"
 //	@Router			/api/v1/org/{id} [get]
 //	@Security		Bearer
-func (h *orgController) GetById(c *gin.Context) {
+func (h *orgController) GetById(c *echo.Context) {
 	orgId, err := utils.ParseInt64Param(c, "id", "required")
 	if err != nil {
 		response.FailCode(c, response.CodeInvalidParam, err.Error())
 		return
 	}
 
-	org, err := h.orgService.GetById(c.Request.Context(), orgId)
+	org, err := h.orgService.GetById(c.Request().Context(), orgId)
 	if err != nil {
 		h.ctr.GetLogger().Error("查询组织失败", zap.Error(err))
 		response.FailWithMsg(c, err.Error())
@@ -226,8 +226,8 @@ func (h *orgController) GetById(c *gin.Context) {
 //	@Failure		500				{object}	response.Response					"服务器错误"
 //	@Router			/api/v1/org/tree [get]
 //	@Security		Bearer
-func (h *orgController) GetTree(c *gin.Context) {
-	orgs, err := h.orgService.GetTree(c.Request.Context())
+func (h *orgController) GetTree(c *echo.Context) {
+	orgs, err := h.orgService.GetTree(c.Request().Context())
 	if err != nil {
 		h.ctr.GetLogger().Error("查询组织树失败", zap.Error(err))
 		response.FailWithMsg(c, err.Error())
@@ -250,9 +250,9 @@ func (h *orgController) GetTree(c *gin.Context) {
 //	@Failure		400				{object}	response.Response	"参数错误"
 //	@Router			/api/v1/org/page [post]
 //	@Security		Bearer
-func (h *orgController) PageOrg(c *gin.Context) {
+func (h *orgController) PageOrg(c *echo.Context) {
 	var req request.PageOrgsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.Bind(&req); err != nil {
 		response.FailCode(c, response.CodeInvalidParam, validator.TranslateValidationError(err))
 		return
 	}
@@ -264,7 +264,7 @@ func (h *orgController) PageOrg(c *gin.Context) {
 		req.PageSize = 10
 	}
 
-	page, err := h.orgService.Page(c.Request.Context(), req.PageNum, req.PageSize, req.OrgName, req.OrgCode, req.Status, req.ParentId)
+	page, err := h.orgService.Page(c.Request().Context(), req.PageNum, req.PageSize, req.OrgName, req.OrgCode, req.Status, req.ParentId)
 	if err != nil {
 		h.ctr.GetLogger().Error("分页查询组织列表失败", zap.Error(err))
 		response.FailWithMsg(c, err.Error())

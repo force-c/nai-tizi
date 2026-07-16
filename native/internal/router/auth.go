@@ -2,11 +2,11 @@ package router
 
 import (
 	"github.com/gcc798/quick.admin/internal/controller"
-	"github.com/gin-gonic/gin"
+	"github.com/gcc798/quick.admin/internal/httpx"
 )
 
 // 注册认证相关路由。
-func registerAuthRoutes(r *gin.Engine, ctx *RouterContext) {
+func registerAuthRoutes(r *httpx.Router, ctx *RouterContext) {
 	// 初始化controller
 	authController := controller.NewAuthController(ctx.Container)
 

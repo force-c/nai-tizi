@@ -3,12 +3,12 @@ package router
 import (
 	"github.com/gcc798/quick.admin/internal/bootstrap"
 	"github.com/gcc798/quick.admin/internal/container"
+	"github.com/gcc798/quick.admin/internal/httpx"
 	"github.com/gcc798/quick.admin/internal/middleware"
 	"github.com/gcc798/quick.admin/internal/service"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v5"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 // RouterContext 定义业务数据结构。
@@ -17,19 +17,19 @@ type RouterContext struct {
 	Bootstrap         *bootstrap.Bootstrap
 	TokenManager      service.TokenManager
 	PermissionService service.PermissionService
-	AuthMiddleware    gin.HandlerFunc
+	AuthMiddleware    echo.MiddlewareFunc
 }
 
 // Setup 配置所有路由。
-func Setup(r *gin.Engine, c container.Container, b *bootstrap.Bootstrap) {
+func Setup(r *httpx.Router, c container.Container, b *bootstrap.Bootstrap) {
 	// 添加 Prometheus 指标收集中间件
 	r.Use(middleware.PrometheusMiddleware())
 
 	// 指标端点
-	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	r.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 
 	// 接口文档
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	r.GET("/swagger/*", echo.WrapHandler(httpSwagger.Handler()))
 
 	// 初始化统一的中间件（除了 auth 模块，其他模块都需要认证）
 	tokenManager := service.NewTokenManager(c.GetJWT(), c.GetRedis(), c.GetLogger())

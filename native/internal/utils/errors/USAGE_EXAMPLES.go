@@ -32,8 +32,8 @@ func (s *userService) SomeBusinessLogic(ctx context.Context, userId int64) error
 }
 
 // Controller 层代码
-func (c *userController) SomeAction(ctx *gin.Context) {
-    err := c.userService.SomeBusinessLogic(ctx.Request.Context(), userId)
+func (c *userController) SomeAction(ctx *echo.Context) {
+    err := c.userService.SomeBusinessLogic(ctx.Request().Context(), userId)
     if err != nil {
         response.Error(ctx, err)  // 统一错误处理
         return
@@ -84,8 +84,8 @@ func (s *userService) CreateUser(ctx context.Context, req *request.CreateUserReq
 }
 
 // Controller 层代码
-func (c *userController) Create(ctx *gin.Context) {
-    err := c.userService.CreateUser(ctx.Request.Context(), &req)
+func (c *userController) Create(ctx *echo.Context) {
+    err := c.userService.CreateUser(ctx.Request().Context(), &req)
     if err != nil {
         response.Error(ctx, err)  // 统一错误处理
         return
@@ -131,8 +131,8 @@ func (s *someService) DangerousOperation(ctx context.Context) error {
 }
 
 // Controller 层代码（无需特殊处理）
-func (c *someController) DangerousAction(ctx *gin.Context) {
-    err := c.someService.DangerousOperation(ctx.Request.Context())
+func (c *someController) DangerousAction(ctx *echo.Context) {
+    err := c.someService.DangerousOperation(ctx.Request().Context())
     if err != nil {
         response.Error(ctx, err)
         return

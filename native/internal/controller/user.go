@@ -11,22 +11,22 @@ import (
 	"github.com/gcc798/quick.admin/internal/utils"
 	_ "github.com/gcc798/quick.admin/internal/utils/pagination"
 	"github.com/gcc798/quick.admin/internal/validator"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v5"
 	"go.uber.org/zap"
 )
 
 // UserController 用户控制器接口
 type UserController interface {
-	Create(c *gin.Context)         // 创建用户
-	Update(c *gin.Context)         // 更新用户
-	Delete(c *gin.Context)         // 删除用户
-	BatchDelete(c *gin.Context)    // 批量删除用户
-	GetById(c *gin.Context)        // 根据ID查询用户
-	BatchImport(c *gin.Context)    // 批量导入用户
-	ResetPassword(c *gin.Context)  // 重置用户密码
-	PageUser(c *gin.Context)       // 分页查询用户列表
-	ChangePassword(c *gin.Context) // 用户修改密码
-	XcxGetInfo(c *gin.Context)     // 获取小程序用户信息
+	Create(c *echo.Context)         // 创建用户
+	Update(c *echo.Context)         // 更新用户
+	Delete(c *echo.Context)         // 删除用户
+	BatchDelete(c *echo.Context)    // 批量删除用户
+	GetById(c *echo.Context)        // 根据ID查询用户
+	BatchImport(c *echo.Context)    // 批量导入用户
+	ResetPassword(c *echo.Context)  // 重置用户密码
+	PageUser(c *echo.Context)       // 分页查询用户列表
+	ChangePassword(c *echo.Context) // 用户修改密码
+	XcxGetInfo(c *echo.Context)     // 获取小程序用户信息
 }
 
 type userController struct {
@@ -56,9 +56,9 @@ func NewUserController(c container.Container) UserController {
 //	@Success		200				{object}	response.Response{data=object}
 //	@Failure		400				{object}	response.Response	"参数错误"
 //	@Router			/api/v1/user [post]
-func (h *userController) Create(c *gin.Context) {
+func (h *userController) Create(c *echo.Context) {
 	var req request.CreateUserRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.Bind(&req); err != nil {
 		response.FailCode(c, response.CodeInvalidParam, validator.TranslateWithMsg(err, &req))
 		return
 	}
@@ -74,13 +74,13 @@ func (h *userController) Create(c *gin.Context) {
 		req.UserType = 0
 	}
 
-	if err := h.userService.Create(c.Request.Context(), &req); err != nil {
+	if err := h.userService.Create(c.Request().Context(), &req); err != nil {
 		h.ctr.GetLogger().Error("创建用户失败", zap.Error(err))
 		response.Error(c, err)
 		return
 	}
 
-	response.Success(c, gin.H{"userId": "ok"})
+	response.Success(c, map[string]any{"userId": "ok"})
 }
 
 // Update 更新用户
@@ -96,7 +96,7 @@ func (h *userController) Create(c *gin.Context) {
 //	@Success		200				{object}	response.Response
 //	@Failure		400				{object}	response.Response	"参数错误"
 //	@Router			/api/v1/user/{id} [put]
-func (h *userController) Update(c *gin.Context) {
+func (h *userController) Update(c *echo.Context) {
 	userId, err := utils.ParseInt64Param(c, "id", "required")
 	if err != nil {
 		response.FailCode(c, response.CodeInvalidParam, err.Error())
@@ -104,7 +104,7 @@ func (h *userController) Update(c *gin.Context) {
 	}
 
 	var req request.UpdateUserRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.Bind(&req); err != nil {
 		response.FailCode(c, response.CodeInvalidParam, validator.Translate(err))
 		return
 	}
@@ -113,7 +113,7 @@ func (h *userController) Update(c *gin.Context) {
 	currentUserId, _ := h.base.GetUserId(c)
 	req.UpdateBy = currentUserId
 
-	if err := h.userService.Update(c.Request.Context(), &req); err != nil {
+	if err := h.userService.Update(c.Request().Context(), &req); err != nil {
 		h.ctr.GetLogger().Error("更新用户失败", zap.Error(err))
 		response.FailWithMsg(c, err.Error())
 		return
@@ -134,14 +134,14 @@ func (h *userController) Update(c *gin.Context) {
 //	@Success		200				{object}	response.Response
 //	@Failure		400				{object}	response.Response	"参数错误"
 //	@Router			/api/v1/user/{id} [delete]
-func (h *userController) Delete(c *gin.Context) {
+func (h *userController) Delete(c *echo.Context) {
 	userId, err := utils.ParseInt64Param(c, "id", "required")
 	if err != nil {
 		response.FailCode(c, response.CodeInvalidParam, err.Error())
 		return
 	}
 
-	if err := h.userService.Delete(c.Request.Context(), userId); err != nil {
+	if err := h.userService.Delete(c.Request().Context(), userId); err != nil {
 		h.ctr.GetLogger().Error("删除用户失败", zap.Error(err))
 		response.FailWithMsg(c, err.Error())
 		return
@@ -162,14 +162,14 @@ func (h *userController) Delete(c *gin.Context) {
 //	@Success		200				{object}	response.Response
 //	@Failure		400				{object}	response.Response	"参数错误"
 //	@Router			/api/v1/user/batch [delete]
-func (h *userController) BatchDelete(c *gin.Context) {
+func (h *userController) BatchDelete(c *echo.Context) {
 	var req request.BatchDeleteUsersRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.Bind(&req); err != nil {
 		response.FailCode(c, response.CodeInvalidParam, validator.Translate(err))
 		return
 	}
 
-	if err := h.userService.BatchDelete(c.Request.Context(), req.IDs); err != nil {
+	if err := h.userService.BatchDelete(c.Request().Context(), req.IDs); err != nil {
 		h.ctr.GetLogger().Error("批量删除用户失败", zap.Error(err))
 		response.FailWithMsg(c, err.Error())
 		return
@@ -190,14 +190,14 @@ func (h *userController) BatchDelete(c *gin.Context) {
 //	@Success		200				{object}	response.Response{data=object}
 //	@Failure		400				{object}	response.Response	"参数错误"
 //	@Router			/api/v1/user/{id} [get]
-func (h *userController) GetById(c *gin.Context) {
+func (h *userController) GetById(c *echo.Context) {
 	userId, err := utils.ParseInt64Param(c, "id", "required")
 	if err != nil {
 		response.FailCode(c, response.CodeInvalidParam, err.Error())
 		return
 	}
 
-	user, err := h.userService.GetById(c.Request.Context(), userId)
+	user, err := h.userService.GetById(c.Request().Context(), userId)
 	if err != nil {
 		h.ctr.GetLogger().Error("查询用户失败", zap.Error(err))
 		response.FailWithMsg(c, err.Error())
@@ -219,9 +219,9 @@ func (h *userController) GetById(c *gin.Context) {
 //	@Success		200				{object}	response.Response{data=object}
 //	@Failure		400				{object}	response.Response	"参数错误"
 //	@Router			/api/v1/user/import [post]
-func (h *userController) BatchImport(c *gin.Context) {
+func (h *userController) BatchImport(c *echo.Context) {
 	var req request.BatchImportUsersRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.Bind(&req); err != nil {
 		response.FailCode(c, response.CodeInvalidParam, validator.Translate(err))
 		return
 	}
@@ -240,14 +240,14 @@ func (h *userController) BatchImport(c *gin.Context) {
 		}
 	}
 
-	successCount, failCount, errors, err := h.userService.BatchImport(c.Request.Context(), &req)
+	successCount, failCount, errors, err := h.userService.BatchImport(c.Request().Context(), &req)
 	if err != nil {
 		h.ctr.GetLogger().Error("批量导入用户失败", zap.Error(err))
 		response.FailWithMsg(c, err.Error())
 		return
 	}
 
-	response.Success(c, gin.H{
+	response.Success(c, map[string]any{
 		"successCount": successCount,
 		"failCount":    failCount,
 		"errors":       errors,
@@ -267,7 +267,7 @@ func (h *userController) BatchImport(c *gin.Context) {
 //	@Success		200				{object}	response.Response
 //	@Failure		400				{object}	response.Response	"参数错误"
 //	@Router			/api/v1/user/{id}/password [put]
-func (h *userController) ResetPassword(c *gin.Context) {
+func (h *userController) ResetPassword(c *echo.Context) {
 	userId, err := utils.ParseInt64Param(c, "id", "required")
 	if err != nil {
 		response.FailCode(c, response.CodeInvalidParam, err.Error())
@@ -275,12 +275,12 @@ func (h *userController) ResetPassword(c *gin.Context) {
 	}
 
 	var req request.ResetPasswordRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.Bind(&req); err != nil {
 		response.FailCode(c, response.CodeInvalidParam, validator.Translate(err))
 		return
 	}
 
-	if err := h.userService.ResetPassword(c.Request.Context(), userId, req.NewPassword); err != nil {
+	if err := h.userService.ResetPassword(c.Request().Context(), userId, req.NewPassword); err != nil {
 		h.ctr.GetLogger().Error("重置密码失败", zap.Error(err))
 		response.FailWithMsg(c, err.Error())
 		return
@@ -301,14 +301,14 @@ func (h *userController) ResetPassword(c *gin.Context) {
 //	@Success		200				{object}	response.Response{data=object}
 //	@Failure		400				{object}	response.Response	"参数错误"
 //	@Router			/api/v1/user/page [post]
-func (h *userController) PageUser(c *gin.Context) {
+func (h *userController) PageUser(c *echo.Context) {
 	var req request.PageUsersRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.Bind(&req); err != nil {
 		response.FailCode(c, response.CodeInvalidParam, validator.Translate(err))
 		return
 	}
 
-	page, err := h.userService.Page(c.Request.Context(), req.PageNum, req.PageSize, req.UserName, req.Phonenumber, req.Status)
+	page, err := h.userService.Page(c.Request().Context(), req.PageNum, req.PageSize, req.UserName, req.Phonenumber, req.Status)
 	if err != nil {
 		h.ctr.GetLogger().Error("分页查询用户列表失败", zap.Error(err))
 		response.FailWithMsg(c, err.Error())
@@ -330,16 +330,16 @@ func (h *userController) PageUser(c *gin.Context) {
 //	@Success		200				{object}	response.Response
 //	@Failure		400				{object}	response.Response	"参数错误"
 //	@Router			/api/v1/user/password/change [post]
-func (h *userController) ChangePassword(c *gin.Context) {
+func (h *userController) ChangePassword(c *echo.Context) {
 	var req request.ChangePasswordRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.Bind(&req); err != nil {
 		response.FailCode(c, response.CodeInvalidParam, validator.Translate(err))
 		return
 	}
 
 	currentUserId, _ := h.base.GetUserId(c)
 
-	if err := h.userService.ChangePassword(c.Request.Context(), currentUserId, req.OldPassword, req.NewPassword); err != nil {
+	if err := h.userService.ChangePassword(c.Request().Context(), currentUserId, req.OldPassword, req.NewPassword); err != nil {
 		h.ctr.GetLogger().Error("修改密码失败", zap.Error(err))
 		response.FailWithMsg(c, err.Error())
 		return
@@ -349,14 +349,14 @@ func (h *userController) ChangePassword(c *gin.Context) {
 }
 
 // XcxGetInfo 获取小程序用户信息
-func (h *userController) XcxGetInfo(c *gin.Context) {
+func (h *userController) XcxGetInfo(c *echo.Context) {
 	currentUserId, err := h.base.GetUserId(c)
 	if err != nil {
 		response.Unauthorized(c, err.Error())
 		return
 	}
 
-	user, err := h.userService.GetById(c.Request.Context(), currentUserId)
+	user, err := h.userService.GetById(c.Request().Context(), currentUserId)
 	if err != nil {
 		h.ctr.GetLogger().Error("查询用户失败", zap.Error(err))
 		response.FailWithMsg(c, "没有权限访问用户数据!")

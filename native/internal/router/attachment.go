@@ -3,12 +3,12 @@ package router
 import (
 	"github.com/gcc798/quick.admin/internal/constants"
 	"github.com/gcc798/quick.admin/internal/controller"
+	"github.com/gcc798/quick.admin/internal/httpx"
 	"github.com/gcc798/quick.admin/internal/middleware"
-	"github.com/gin-gonic/gin"
 )
 
 // registerAttachmentRoutes 注册附件管理路由
-func registerAttachmentRoutes(r *gin.Engine, ctx *RouterContext) {
+func registerAttachmentRoutes(r *httpx.Router, ctx *RouterContext) {
 	// 初始化 controller
 	attachmentController := controller.NewAttachmentController(ctx.Container)
 

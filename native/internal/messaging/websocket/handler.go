@@ -9,8 +9,8 @@ import (
 	"time"
 
 	logging "github.com/gcc798/quick.admin/internal/logger"
-	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/labstack/echo/v5"
 	"go.uber.org/zap"
 )
 
@@ -65,16 +65,16 @@ func (h *Handler) RegisterHeartbeatMessageBuilder(maxReadTimeouts int, builder H
 }
 
 // ServeWs 处理 WebSocket 连接请求。
-func (h *Handler) ServeWs(c *gin.Context) {
+func (h *Handler) ServeWs(c *echo.Context) {
 	if h.hub == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "websocket disabled"})
+		c.JSON(http.StatusServiceUnavailable, map[string]any{"error": "websocket disabled"})
 		return
 	}
 
 	// 从查询参数或 JWT 中获取用户 ID。
-	userIdStr := c.Query("userId")
+	userIdStr := c.QueryParam("userId")
 	if userIdStr == "" {
-		if userId, exists := c.Get("userId"); exists {
+		if userId := c.Get("userId"); userId != nil {
 			if uid, ok := userId.(int64); ok {
 				userIdStr = strconv.FormatInt(uid, 10)
 			}
@@ -82,18 +82,18 @@ func (h *Handler) ServeWs(c *gin.Context) {
 	}
 
 	if userIdStr == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing userId"})
+		c.JSON(http.StatusUnauthorized, map[string]any{"error": "missing userId"})
 		return
 	}
 
 	userId, err := strconv.ParseInt(userIdStr, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid userId"})
+		c.JSON(http.StatusBadRequest, map[string]any{"error": "invalid userId"})
 		return
 	}
 
 	// 升级 HTTP 连接为 WebSocket。
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	conn, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
 		h.logger.Error("failed to upgrade websocket connection",
 			zap.Int64("userId", userId),
@@ -126,7 +126,7 @@ func (h *Handler) ServeWs(c *gin.Context) {
 
 	h.logger.Info("websocket connection established",
 		zap.Int64("userId", userId),
-		zap.String("remoteAddr", c.Request.RemoteAddr))
+		zap.String("remoteAddr", c.Request().RemoteAddr))
 }
 
 // readPump 读取客户端消息并保持连接。

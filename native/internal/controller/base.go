@@ -6,7 +6,7 @@ import (
 
 	"github.com/gcc798/quick.admin/internal/container"
 	"github.com/gcc798/quick.admin/internal/domain/model"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v5"
 )
 
 // BaseController 定义业务数据结构。
@@ -20,8 +20,8 @@ func NewBaseController(c container.Container) *BaseController {
 }
 
 // GetUserId 获取当前用户ID
-func (b *BaseController) GetUserId(c *gin.Context) (int64, error) {
-	if userId, exists := c.Get("userId"); exists {
+func (b *BaseController) GetUserId(c *echo.Context) (int64, error) {
+	if userId := c.Get("userId"); userId != nil {
 		if id, ok := userId.(int64); ok {
 			return id, nil
 		}
@@ -30,8 +30,8 @@ func (b *BaseController) GetUserId(c *gin.Context) (int64, error) {
 }
 
 // GetUserName 获取当前用户名
-func (b *BaseController) GetUserName(c *gin.Context) (string, error) {
-	if userName, exists := c.Get("userName"); exists {
+func (b *BaseController) GetUserName(c *echo.Context) (string, error) {
+	if userName := c.Get("userName"); userName != nil {
 		if name, ok := userName.(string); ok {
 			return name, nil
 		}
@@ -40,8 +40,8 @@ func (b *BaseController) GetUserName(c *gin.Context) (string, error) {
 }
 
 // GetClientId 获取客户端ID
-func (b *BaseController) GetClientId(c *gin.Context) (string, error) {
-	if clientId, exists := c.Get("clientId"); exists {
+func (b *BaseController) GetClientId(c *echo.Context) (string, error) {
+	if clientId := c.Get("clientId"); clientId != nil {
 		if id, ok := clientId.(string); ok {
 			return id, nil
 		}
@@ -50,8 +50,8 @@ func (b *BaseController) GetClientId(c *gin.Context) (string, error) {
 }
 
 // GetDeviceType 获取设备类型
-func (b *BaseController) GetDeviceType(c *gin.Context) (string, error) {
-	if deviceType, exists := c.Get("deviceType"); exists {
+func (b *BaseController) GetDeviceType(c *echo.Context) (string, error) {
+	if deviceType := c.Get("deviceType"); deviceType != nil {
 		if dt, ok := deviceType.(string); ok {
 			return dt, nil
 		}
@@ -60,10 +60,10 @@ func (b *BaseController) GetDeviceType(c *gin.Context) (string, error) {
 }
 
 // CurrentUser 从JWT token解析当前用户信息（不查询数据库）
-func (b *BaseController) CurrentUser(c *gin.Context) (*model.User, error) {
+func (b *BaseController) CurrentUser(c *echo.Context) (*model.User, error) {
 	// 先尝试从 context 中获取（middleware 可能已经解析并设置）
-	if userId, exists := c.Get("userId"); exists {
-		if userName, exists := c.Get("userName"); exists {
+	if userId := c.Get("userId"); userId != nil {
+		if userName := c.Get("userName"); userName != nil {
 			return &model.User{
 				ID:       userId.(int64),
 				UserName: userName.(string),
@@ -73,7 +73,7 @@ func (b *BaseController) CurrentUser(c *gin.Context) (*model.User, error) {
 
 	// 如果 context 中没有，从 token 中解析
 	tokenHeader := b.ctr.GetConfig().Auth.TokenHeader
-	token := c.GetHeader(tokenHeader)
+	token := c.Request().Header.Get(tokenHeader)
 	token = strings.TrimPrefix(token, "Bearer ")
 	claims, err := b.ctr.GetJWT().ValidateToken(token)
 	if err != nil {

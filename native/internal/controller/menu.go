@@ -6,18 +6,18 @@ import (
 	"github.com/gcc798/quick.admin/internal/domain/model"
 	"github.com/gcc798/quick.admin/internal/domain/response"
 	"github.com/gcc798/quick.admin/internal/service"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v5"
 )
 
 // MenuController 菜单控制器接口
 type MenuController interface {
-	GetUserMenuTree(ctx *gin.Context) // 获取当前用户的菜单树
-	GetMenuTree(ctx *gin.Context)     // 获取所有菜单树
-	GetMenuList(ctx *gin.Context)     // 获取菜单列表
-	GetMenuById(ctx *gin.Context)     // 获取菜单详情
-	CreateMenu(ctx *gin.Context)      // 创建菜单
-	UpdateMenu(ctx *gin.Context)      // 更新菜单
-	DeleteMenu(ctx *gin.Context)      // 删除菜单
+	GetUserMenuTree(ctx *echo.Context) // 获取当前用户的菜单树
+	GetMenuTree(ctx *echo.Context)     // 获取所有菜单树
+	GetMenuList(ctx *echo.Context)     // 获取菜单列表
+	GetMenuById(ctx *echo.Context)     // 获取菜单详情
+	CreateMenu(ctx *echo.Context)      // 创建菜单
+	UpdateMenu(ctx *echo.Context)      // 更新菜单
+	DeleteMenu(ctx *echo.Context)      // 删除菜单
 }
 
 type menuController struct {
@@ -43,9 +43,9 @@ func NewMenuController(menuService *service.MenuService) MenuController {
 //	@Failure		401	{object}	response.Response							"未授权"
 //	@Failure		500	{object}	response.Response							"服务器错误"
 //	@Router			/api/v1/menu/user/tree [get]
-func (c *menuController) GetUserMenuTree(ctx *gin.Context) {
-	userId, exists := ctx.Get("userId")
-	if !exists {
+func (c *menuController) GetUserMenuTree(ctx *echo.Context) {
+	userId := ctx.Get("userId")
+	if userId == nil {
 		response.FailCode(ctx, response.CodeUnauthorized, "未授权")
 		return
 	}
@@ -76,7 +76,7 @@ func (c *menuController) GetUserMenuTree(ctx *gin.Context) {
 //	@Success		200	{object}	response.Response{data=[]service.MenuTree}	"成功"
 //	@Failure		500	{object}	response.Response							"服务器错误"
 //	@Router			/api/v1/menu/tree [get]
-func (c *menuController) GetMenuTree(ctx *gin.Context) {
+func (c *menuController) GetMenuTree(ctx *echo.Context) {
 	tree, err := c.menuService.GetAllMenuTree()
 	if err != nil {
 		response.FailCode(ctx, response.CodeServerError, err.Error())
@@ -97,7 +97,7 @@ func (c *menuController) GetMenuTree(ctx *gin.Context) {
 //	@Success		200	{object}	response.Response{data=[]model.Menu}	"成功"
 //	@Failure		500	{object}	response.Response						"服务器错误"
 //	@Router			/api/v1/menu [get]
-func (c *menuController) GetMenuList(ctx *gin.Context) {
+func (c *menuController) GetMenuList(ctx *echo.Context) {
 	menus, err := c.menuService.GetMenuList()
 	if err != nil {
 		response.FailCode(ctx, response.CodeServerError, err.Error())
@@ -121,7 +121,7 @@ func (c *menuController) GetMenuList(ctx *gin.Context) {
 //	@Failure		404	{object}	response.Response					"菜单不存在"
 //	@Failure		500	{object}	response.Response					"服务器错误"
 //	@Router			/api/v1/menu/{id} [get]
-func (c *menuController) GetMenuById(ctx *gin.Context) {
+func (c *menuController) GetMenuById(ctx *echo.Context) {
 	menuId, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
 		response.FailCode(ctx, response.CodeInvalidParam, "无效的菜单ID")
@@ -150,14 +150,14 @@ func (c *menuController) GetMenuById(ctx *gin.Context) {
 //	@Failure		400		{object}	response.Response	"参数错误"
 //	@Failure		500		{object}	response.Response	"服务器错误"
 //	@Router			/api/v1/menu [post]
-func (c *menuController) CreateMenu(ctx *gin.Context) {
+func (c *menuController) CreateMenu(ctx *echo.Context) {
 	var menu model.Menu
-	if err := ctx.ShouldBindJSON(&menu); err != nil {
+	if err := ctx.Bind(&menu); err != nil {
 		response.FailCode(ctx, response.CodeInvalidParam, "参数错误: "+err.Error())
 		return
 	}
 
-	userId, _ := ctx.Get("userId")
+	userId := ctx.Get("userId")
 	menu.CreateBy = userId.(int64)
 	menu.UpdateBy = userId.(int64)
 
@@ -183,7 +183,7 @@ func (c *menuController) CreateMenu(ctx *gin.Context) {
 //	@Failure		400		{object}	response.Response	"参数错误"
 //	@Failure		500		{object}	response.Response	"服务器错误"
 //	@Router			/api/v1/menu/{id} [put]
-func (c *menuController) UpdateMenu(ctx *gin.Context) {
+func (c *menuController) UpdateMenu(ctx *echo.Context) {
 	menuId, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
 		response.FailCode(ctx, response.CodeInvalidParam, "无效的菜单ID")
@@ -191,14 +191,14 @@ func (c *menuController) UpdateMenu(ctx *gin.Context) {
 	}
 
 	var menu model.Menu
-	if err := ctx.ShouldBindJSON(&menu); err != nil {
+	if err := ctx.Bind(&menu); err != nil {
 		response.FailCode(ctx, response.CodeInvalidParam, "参数错误: "+err.Error())
 		return
 	}
 
 	menu.ID = menuId
 
-	userId, _ := ctx.Get("userId")
+	userId := ctx.Get("userId")
 	menu.UpdateBy = userId.(int64)
 
 	if err := c.menuService.UpdateMenu(&menu); err != nil {
@@ -222,7 +222,7 @@ func (c *menuController) UpdateMenu(ctx *gin.Context) {
 //	@Failure		400	{object}	response.Response	"参数错误"
 //	@Failure		500	{object}	response.Response	"服务器错误"
 //	@Router			/api/v1/menu/{id} [delete]
-func (c *menuController) DeleteMenu(ctx *gin.Context) {
+func (c *menuController) DeleteMenu(ctx *echo.Context) {
 	menuId, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
 		response.FailCode(ctx, response.CodeInvalidParam, "无效的菜单ID")

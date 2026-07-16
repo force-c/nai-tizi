@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/labstack/echo/v5"
 )
 
 var validate *validator.Validate
@@ -22,14 +22,14 @@ func init() {
 
 // ParseInt64Param 解析和校验 int64 类型的路径参数
 // 参数：
-//   - ctx: Gin 上下文
+//   - ctx: Echo 上下文
 //   - paramName: 参数名称
 //   - rules: 可选的校验规则（如 "required,gt=0"）
 //
 // 返回：
 //   - int64: 解析后的值
 //   - error: 错误信息
-func ParseInt64Param(ctx *gin.Context, paramName string, rules ...string) (int64, error) {
+func ParseInt64Param(ctx *echo.Context, paramName string, rules ...string) (int64, error) {
 	paramStr := ctx.Param(paramName)
 	if paramStr == "" {
 		return 0, fmt.Errorf("%s不能为空", paramName)
@@ -51,7 +51,7 @@ func ParseInt64Param(ctx *gin.Context, paramName string, rules ...string) (int64
 }
 
 // ParseIntParam 解析和校验 int 类型的路径参数
-func ParseIntParam(ctx *gin.Context, paramName string, rules ...string) (int, error) {
+func ParseIntParam(ctx *echo.Context, paramName string, rules ...string) (int, error) {
 	paramStr := ctx.Param(paramName)
 	if paramStr == "" {
 		return 0, fmt.Errorf("%s不能为空", paramName)
@@ -73,8 +73,8 @@ func ParseIntParam(ctx *gin.Context, paramName string, rules ...string) (int, er
 }
 
 // ParseBoolParam 解析和校验 bool 类型的参数
-func ParseBoolParam(ctx *gin.Context, paramName string, defaultValue bool) bool {
-	paramStr := ctx.Query(paramName)
+func ParseBoolParam(ctx *echo.Context, paramName string, defaultValue bool) bool {
+	paramStr := ctx.QueryParam(paramName)
 	if paramStr == "" {
 		return defaultValue
 	}
@@ -88,8 +88,8 @@ func ParseBoolParam(ctx *gin.Context, paramName string, defaultValue bool) bool 
 }
 
 // ParseInt64Query 解析和校验 int64 类型的 Query 参数
-func ParseInt64Query(ctx *gin.Context, paramName string, defaultValue int64, rules ...string) (int64, error) {
-	paramStr := ctx.Query(paramName)
+func ParseInt64Query(ctx *echo.Context, paramName string, defaultValue int64, rules ...string) (int64, error) {
+	paramStr := ctx.QueryParam(paramName)
 	if paramStr == "" {
 		return defaultValue, nil
 	}
@@ -110,8 +110,8 @@ func ParseInt64Query(ctx *gin.Context, paramName string, defaultValue int64, rul
 }
 
 // ParseIntQuery 解析和校验 int 类型的 Query 参数
-func ParseIntQuery(ctx *gin.Context, paramName string, defaultValue int, rules ...string) (int, error) {
-	paramStr := ctx.Query(paramName)
+func ParseIntQuery(ctx *echo.Context, paramName string, defaultValue int, rules ...string) (int, error) {
+	paramStr := ctx.QueryParam(paramName)
 	if paramStr == "" {
 		return defaultValue, nil
 	}
@@ -141,14 +141,14 @@ func ValidateStruct(s interface{}) error {
 	return validate.Struct(s)
 }
 
-func BindJSONWithTypeCasting(ctx *gin.Context, obj interface{}) error {
-	bodyBytes, err := io.ReadAll(ctx.Request.Body)
+func BindJSONWithTypeCasting(ctx *echo.Context, obj interface{}) error {
+	bodyBytes, err := io.ReadAll(ctx.Request().Body)
 	if err != nil {
 		return err
 	}
-	ctx.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+	ctx.Request().Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 	if len(bodyBytes) == 0 {
-		return ctx.ShouldBindJSON(obj)
+		return ctx.Bind(obj)
 	}
 	var data interface{}
 	if err := json.Unmarshal(bodyBytes, &data); err != nil {
@@ -156,19 +156,19 @@ func BindJSONWithTypeCasting(ctx *gin.Context, obj interface{}) error {
 	}
 	castingFields := buildTypeCastingFieldMap(obj)
 	if len(castingFields) == 0 {
-		ctx.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-		return ctx.ShouldBindJSON(obj)
+		ctx.Request().Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		return ctx.Bind(obj)
 	}
 	if converted := convertJSONValueByCastingFields(data, castingFields); converted {
 		convertedBytes, err := json.Marshal(data)
 		if err != nil {
 			return err
 		}
-		ctx.Request.Body = io.NopCloser(bytes.NewBuffer(convertedBytes))
+		ctx.Request().Body = io.NopCloser(bytes.NewBuffer(convertedBytes))
 	} else {
-		ctx.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		ctx.Request().Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 	}
-	return ctx.ShouldBindJSON(obj)
+	return ctx.Bind(obj)
 }
 
 func buildTypeCastingFieldMap(obj interface{}) map[string]string {

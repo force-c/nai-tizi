@@ -3,12 +3,12 @@ package router
 import (
 	"github.com/gcc798/quick.admin/internal/constants"
 	"github.com/gcc798/quick.admin/internal/controller"
+	"github.com/gcc798/quick.admin/internal/httpx"
 	"github.com/gcc798/quick.admin/internal/middleware"
-	"github.com/gin-gonic/gin"
 )
 
 // registerRoleRoutes 注册角色管理路由
-func registerRoleRoutes(r *gin.Engine, ctx *RouterContext) {
+func registerRoleRoutes(r *httpx.Router, ctx *RouterContext) {
 	// 初始化 controller
 	roleController := controller.NewRoleController(ctx.Container)
 

@@ -8,19 +8,19 @@ import (
 	"github.com/gcc798/quick.admin/internal/domain/response"
 	"github.com/gcc798/quick.admin/internal/service"
 	_ "github.com/gcc798/quick.admin/internal/utils/pagination"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v5"
 )
 
 // DictController 字典控制器接口
 type DictController interface {
-	CreateDict(ctx *gin.Context)      // 创建字典
-	UpdateDict(ctx *gin.Context)      // 更新字典
-	DeleteDict(ctx *gin.Context)      // 删除字典
-	BatchDeleteDict(ctx *gin.Context) // 批量删除字典
-	GetDictById(ctx *gin.Context)     // 根据ID查询字典
-	PageDict(ctx *gin.Context)        // 分页查询字典列表
-	GetDictByType(ctx *gin.Context)   // 根据类型获取字典列表
-	GetDictLabel(ctx *gin.Context)    // 根据类型和键值获取标签
+	CreateDict(ctx *echo.Context)      // 创建字典
+	UpdateDict(ctx *echo.Context)      // 更新字典
+	DeleteDict(ctx *echo.Context)      // 删除字典
+	BatchDeleteDict(ctx *echo.Context) // 批量删除字典
+	GetDictById(ctx *echo.Context)     // 根据ID查询字典
+	PageDict(ctx *echo.Context)        // 分页查询字典列表
+	GetDictByType(ctx *echo.Context)   // 根据类型获取字典列表
+	GetDictLabel(ctx *echo.Context)    // 根据类型和键值获取标签
 }
 
 type dictController struct {
@@ -49,14 +49,14 @@ func NewDictController(c container.Container) DictController {
 //	@Failure		500		{object}	response.Response			"服务器内部错误"
 //	@Router			/api/v1/dict [post]
 //	@Security		Bearer
-func (c *dictController) CreateDict(ctx *gin.Context) {
+func (c *dictController) CreateDict(ctx *echo.Context) {
 	var req request.CreateDictRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
 
-	if err := c.dictService.Create(ctx.Request.Context(), &req); err != nil {
+	if err := c.dictService.Create(ctx.Request().Context(), &req); err != nil {
 		response.Fail(ctx, err.Error())
 		return
 	}
@@ -77,7 +77,7 @@ func (c *dictController) CreateDict(ctx *gin.Context) {
 //	@Failure		500		{object}	response.Response			"服务器内部错误"
 //	@Router			/api/v1/dict [put]
 //	@Security		Bearer
-func (c *dictController) UpdateDict(ctx *gin.Context) {
+func (c *dictController) UpdateDict(ctx *echo.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -86,13 +86,13 @@ func (c *dictController) UpdateDict(ctx *gin.Context) {
 	}
 
 	var req request.UpdateDictRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
 	req.ID = id
 
-	if err := c.dictService.Update(ctx.Request.Context(), &req); err != nil {
+	if err := c.dictService.Update(ctx.Request().Context(), &req); err != nil {
 		response.Fail(ctx, err.Error())
 		return
 	}
@@ -113,7 +113,7 @@ func (c *dictController) UpdateDict(ctx *gin.Context) {
 //	@Failure		500	{object}	response.Response	"服务器内部错误"
 //	@Router			/api/v1/dict/{id} [delete]
 //	@Security		Bearer
-func (c *dictController) DeleteDict(ctx *gin.Context) {
+func (c *dictController) DeleteDict(ctx *echo.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -121,7 +121,7 @@ func (c *dictController) DeleteDict(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.dictService.Delete(ctx.Request.Context(), id); err != nil {
+	if err := c.dictService.Delete(ctx.Request().Context(), id); err != nil {
 		response.Fail(ctx, err.Error())
 		return
 	}
@@ -142,14 +142,14 @@ func (c *dictController) DeleteDict(ctx *gin.Context) {
 //	@Failure		500		{object}	response.Response				"服务器内部错误"
 //	@Router			/api/v1/dict/batch [delete]
 //	@Security		Bearer
-func (c *dictController) BatchDeleteDict(ctx *gin.Context) {
+func (c *dictController) BatchDeleteDict(ctx *echo.Context) {
 	var req request.BatchDeleteDictRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
 
-	if err := c.dictService.BatchDelete(ctx.Request.Context(), req.IDs); err != nil {
+	if err := c.dictService.BatchDelete(ctx.Request().Context(), req.IDs); err != nil {
 		response.Fail(ctx, err.Error())
 		return
 	}
@@ -170,7 +170,7 @@ func (c *dictController) BatchDeleteDict(ctx *gin.Context) {
 //	@Failure		500	{object}	response.Response									"服务器内部错误"
 //	@Router			/api/v1/dict/{id} [get]
 //	@Security		Bearer
-func (c *dictController) GetDictById(ctx *gin.Context) {
+func (c *dictController) GetDictById(ctx *echo.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -178,7 +178,7 @@ func (c *dictController) GetDictById(ctx *gin.Context) {
 		return
 	}
 
-	dict, err := c.dictService.GetById(ctx.Request.Context(), id)
+	dict, err := c.dictService.GetById(ctx.Request().Context(), id)
 	if err != nil {
 		response.Fail(ctx, err.Error())
 		return
@@ -206,14 +206,14 @@ func (c *dictController) GetDictById(ctx *gin.Context) {
 //	@Failure		500				{object}	response.Response	"服务器内部错误"
 //	@Router			/api/v1/system/dict/page [get]
 //	@Security		Bearer
-func (c *dictController) PageDict(ctx *gin.Context) {
+func (c *dictController) PageDict(ctx *echo.Context) {
 	var req request.PageDictRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
 
-	page, err := c.dictService.Page(ctx.Request.Context(), &req)
+	page, err := c.dictService.Page(ctx.Request().Context(), &req)
 	if err != nil {
 		response.Fail(ctx, err.Error())
 		return
@@ -235,9 +235,9 @@ func (c *dictController) PageDict(ctx *gin.Context) {
 //	@Failure		400			{object}	response.Response									"请求参数错误"
 //	@Failure		500			{object}	response.Response									"服务器内部错误"
 //	@Router			/api/v1/dict/type [get]
-func (c *dictController) GetDictByType(ctx *gin.Context) {
+func (c *dictController) GetDictByType(ctx *echo.Context) {
 	var req request.GetDictByTypeRequest
-	if err := ctx.ShouldBindQuery(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
@@ -245,7 +245,7 @@ func (c *dictController) GetDictByType(ctx *gin.Context) {
 	var dicts []response.DictDataResponse
 
 	if req.ParentId != nil {
-		dictList, err := c.dictService.GetByTypeAndParent(ctx.Request.Context(), req.DictType, *req.ParentId)
+		dictList, err := c.dictService.GetByTypeAndParent(ctx.Request().Context(), req.DictType, *req.ParentId)
 		if err != nil {
 			response.Fail(ctx, err.Error())
 			return
@@ -254,7 +254,7 @@ func (c *dictController) GetDictByType(ctx *gin.Context) {
 			dicts = append(dicts, response.ToDictDataResponse(&dict))
 		}
 	} else {
-		dictList, err := c.dictService.GetByType(ctx.Request.Context(), req.DictType)
+		dictList, err := c.dictService.GetByType(ctx.Request().Context(), req.DictType)
 		if err != nil {
 			response.Fail(ctx, err.Error())
 			return
@@ -280,16 +280,16 @@ func (c *dictController) GetDictByType(ctx *gin.Context) {
 //	@Failure		400			{object}	response.Response				"请求参数错误"
 //	@Failure		500			{object}	response.Response				"服务器内部错误"
 //	@Router			/api/v1/dict/label [get]
-func (c *dictController) GetDictLabel(ctx *gin.Context) {
-	dictType := ctx.Query("dictType")
-	dictValue := ctx.Query("dictValue")
+func (c *dictController) GetDictLabel(ctx *echo.Context) {
+	dictType := ctx.QueryParam("dictType")
+	dictValue := ctx.QueryParam("dictValue")
 
 	if dictType == "" || dictValue == "" {
 		response.BadRequest(ctx, "dictType和dictValue不能为空")
 		return
 	}
 
-	label, err := c.dictService.GetDictLabel(ctx.Request.Context(), dictType, dictValue)
+	label, err := c.dictService.GetDictLabel(ctx.Request().Context(), dictType, dictValue)
 	if err != nil {
 		response.Fail(ctx, err.Error())
 		return

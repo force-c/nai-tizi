@@ -8,18 +8,18 @@ import (
 	"github.com/gcc798/quick.admin/internal/domain/response"
 	"github.com/gcc798/quick.admin/internal/service"
 	_ "github.com/gcc798/quick.admin/internal/utils/pagination"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v5"
 )
 
 // OperLogController 定义业务数据结构。
 type OperLogController interface {
-	CreateOperLog(ctx *gin.Context)      // 创建操作日志
-	UpdateOperLog(ctx *gin.Context)      // 更新操作日志
-	DeleteOperLog(ctx *gin.Context)      // 删除操作日志
-	BatchDeleteOperLog(ctx *gin.Context) // 批量删除操作日志
-	GetOperLogById(ctx *gin.Context)     // 根据ID查询操作日志
-	PageOperLog(ctx *gin.Context)        // 分页查询操作日志列表
-	CleanOperLog(ctx *gin.Context)       // 清理操作日志
+	CreateOperLog(ctx *echo.Context)      // 创建操作日志
+	UpdateOperLog(ctx *echo.Context)      // 更新操作日志
+	DeleteOperLog(ctx *echo.Context)      // 删除操作日志
+	BatchDeleteOperLog(ctx *echo.Context) // 批量删除操作日志
+	GetOperLogById(ctx *echo.Context)     // 根据ID查询操作日志
+	PageOperLog(ctx *echo.Context)        // 分页查询操作日志列表
+	CleanOperLog(ctx *echo.Context)       // 清理操作日志
 }
 
 type operLogController struct {
@@ -48,14 +48,14 @@ func NewOperLogController(c container.Container) OperLogController {
 //	@Failure		500		{object}	response.Response				"服务器内部错误"
 //	@Router			/api/v1/operLog [post]
 //	@Security		Bearer
-func (c *operLogController) CreateOperLog(ctx *gin.Context) {
+func (c *operLogController) CreateOperLog(ctx *echo.Context) {
 	var req request.CreateOperLogRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
 
-	if err := c.operLogService.Create(ctx.Request.Context(), &req); err != nil {
+	if err := c.operLogService.Create(ctx.Request().Context(), &req); err != nil {
 		response.Fail(ctx, err.Error())
 		return
 	}
@@ -76,14 +76,14 @@ func (c *operLogController) CreateOperLog(ctx *gin.Context) {
 //	@Failure		500		{object}	response.Response				"服务器内部错误"
 //	@Router			/api/v1/operLog [put]
 //	@Security		Bearer
-func (c *operLogController) UpdateOperLog(ctx *gin.Context) {
+func (c *operLogController) UpdateOperLog(ctx *echo.Context) {
 	var req request.UpdateOperLogRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
 
-	if err := c.operLogService.Update(ctx.Request.Context(), &req); err != nil {
+	if err := c.operLogService.Update(ctx.Request().Context(), &req); err != nil {
 		response.Fail(ctx, err.Error())
 		return
 	}
@@ -104,7 +104,7 @@ func (c *operLogController) UpdateOperLog(ctx *gin.Context) {
 //	@Failure		500	{object}	response.Response	"服务器内部错误"
 //	@Router			/api/v1/operLog/{id} [delete]
 //	@Security		Bearer
-func (c *operLogController) DeleteOperLog(ctx *gin.Context) {
+func (c *operLogController) DeleteOperLog(ctx *echo.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -112,7 +112,7 @@ func (c *operLogController) DeleteOperLog(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.operLogService.Delete(ctx.Request.Context(), id); err != nil {
+	if err := c.operLogService.Delete(ctx.Request().Context(), id); err != nil {
 		response.Fail(ctx, err.Error())
 		return
 	}
@@ -133,14 +133,14 @@ func (c *operLogController) DeleteOperLog(ctx *gin.Context) {
 //	@Failure		500		{object}	response.Response					"服务器内部错误"
 //	@Router			/api/v1/operLog/batch [delete]
 //	@Security		Bearer
-func (c *operLogController) BatchDeleteOperLog(ctx *gin.Context) {
+func (c *operLogController) BatchDeleteOperLog(ctx *echo.Context) {
 	var req request.BatchDeleteOperLogRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
 
-	if err := c.operLogService.BatchDelete(ctx.Request.Context(), req.IDs); err != nil {
+	if err := c.operLogService.BatchDelete(ctx.Request().Context(), req.IDs); err != nil {
 		response.Fail(ctx, err.Error())
 		return
 	}
@@ -161,7 +161,7 @@ func (c *operLogController) BatchDeleteOperLog(ctx *gin.Context) {
 //	@Failure		500	{object}	response.Response									"服务器内部错误"
 //	@Router			/api/v1/operLog/{id} [get]
 //	@Security		Bearer
-func (c *operLogController) GetOperLogById(ctx *gin.Context) {
+func (c *operLogController) GetOperLogById(ctx *echo.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -169,7 +169,7 @@ func (c *operLogController) GetOperLogById(ctx *gin.Context) {
 		return
 	}
 
-	log, err := c.operLogService.GetById(ctx.Request.Context(), id)
+	log, err := c.operLogService.GetById(ctx.Request().Context(), id)
 	if err != nil {
 		response.Fail(ctx, err.Error())
 		return
@@ -191,14 +191,14 @@ func (c *operLogController) GetOperLogById(ctx *gin.Context) {
 //	@Failure		500				{object}	response.Response	"服务器内部错误"
 //	@Router			/api/v1/operLog/page [post]
 //	@Security		Bearer
-func (c *operLogController) PageOperLog(ctx *gin.Context) {
+func (c *operLogController) PageOperLog(ctx *echo.Context) {
 	var req request.PageOperLogRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
 
-	page, err := c.operLogService.Page(ctx.Request.Context(), &req)
+	page, err := c.operLogService.Page(ctx.Request().Context(), &req)
 	if err != nil {
 		response.Fail(ctx, err.Error())
 		return
@@ -220,14 +220,14 @@ func (c *operLogController) PageOperLog(ctx *gin.Context) {
 //	@Failure		500		{object}	response.Response			"服务器内部错误"
 //	@Router			/api/v1/operLog/clean [post]
 //	@Security		Bearer
-func (c *operLogController) CleanOperLog(ctx *gin.Context) {
+func (c *operLogController) CleanOperLog(ctx *echo.Context) {
 	var req request.CleanOperLogRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
 
-	count, err := c.operLogService.CleanOldLogs(ctx.Request.Context(), req.Days)
+	count, err := c.operLogService.CleanOldLogs(ctx.Request().Context(), req.Days)
 	if err != nil {
 		response.Fail(ctx, err.Error())
 		return

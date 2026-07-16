@@ -8,19 +8,19 @@ import (
 	"github.com/gcc798/quick.admin/internal/domain/response"
 	"github.com/gcc798/quick.admin/internal/service"
 	_ "github.com/gcc798/quick.admin/internal/utils/pagination"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v5"
 )
 
 // ConfigController 配置控制器接口
 type ConfigController interface {
-	CreateConfig(ctx *gin.Context)        // 创建配置
-	UpdateConfig(ctx *gin.Context)        // 更新配置
-	DeleteConfig(ctx *gin.Context)        // 删除配置
-	BatchDeleteConfig(ctx *gin.Context)   // 批量删除配置
-	GetConfigById(ctx *gin.Context)       // 根据ID查询配置
-	PageConfig(ctx *gin.Context)          // 分页查询配置列表
-	GetConfigByCode(ctx *gin.Context)     // 根据编码获取配置列表
-	GetConfigDataByCode(ctx *gin.Context) // 根据编码获取配置数据
+	CreateConfig(ctx *echo.Context)        // 创建配置
+	UpdateConfig(ctx *echo.Context)        // 更新配置
+	DeleteConfig(ctx *echo.Context)        // 删除配置
+	BatchDeleteConfig(ctx *echo.Context)   // 批量删除配置
+	GetConfigById(ctx *echo.Context)       // 根据ID查询配置
+	PageConfig(ctx *echo.Context)          // 分页查询配置列表
+	GetConfigByCode(ctx *echo.Context)     // 根据编码获取配置列表
+	GetConfigDataByCode(ctx *echo.Context) // 根据编码获取配置数据
 }
 
 type configController struct {
@@ -49,14 +49,14 @@ func NewConfigController(c container.Container) ConfigController {
 //	@Failure		500		{object}	response.Response			"服务器内部错误"
 //	@Router			/api/v1/config [post]
 //	@Security		Bearer
-func (c *configController) CreateConfig(ctx *gin.Context) {
+func (c *configController) CreateConfig(ctx *echo.Context) {
 	var req request.CreateConfigRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
 
-	if err := c.configService.Create(ctx.Request.Context(), &req); err != nil {
+	if err := c.configService.Create(ctx.Request().Context(), &req); err != nil {
 		response.Fail(ctx, err.Error())
 		return
 	}
@@ -77,7 +77,7 @@ func (c *configController) CreateConfig(ctx *gin.Context) {
 //	@Failure		500		{object}	response.Response			"服务器内部错误"
 //	@Router			/api/v1/config [put]
 //	@Security		Bearer
-func (c *configController) UpdateConfig(ctx *gin.Context) {
+func (c *configController) UpdateConfig(ctx *echo.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -86,13 +86,13 @@ func (c *configController) UpdateConfig(ctx *gin.Context) {
 	}
 
 	var req request.UpdateConfigRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
 	req.ID = id
 
-	if err := c.configService.Update(ctx.Request.Context(), &req); err != nil {
+	if err := c.configService.Update(ctx.Request().Context(), &req); err != nil {
 		response.Fail(ctx, err.Error())
 		return
 	}
@@ -113,7 +113,7 @@ func (c *configController) UpdateConfig(ctx *gin.Context) {
 //	@Failure		500	{object}	response.Response	"服务器内部错误"
 //	@Router			/api/v1/config/{id} [delete]
 //	@Security		Bearer
-func (c *configController) DeleteConfig(ctx *gin.Context) {
+func (c *configController) DeleteConfig(ctx *echo.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -121,7 +121,7 @@ func (c *configController) DeleteConfig(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.configService.Delete(ctx.Request.Context(), id); err != nil {
+	if err := c.configService.Delete(ctx.Request().Context(), id); err != nil {
 		response.Fail(ctx, err.Error())
 		return
 	}
@@ -142,14 +142,14 @@ func (c *configController) DeleteConfig(ctx *gin.Context) {
 //	@Failure		500		{object}	response.Response					"服务器内部错误"
 //	@Router			/api/v1/config/batch [delete]
 //	@Security		Bearer
-func (c *configController) BatchDeleteConfig(ctx *gin.Context) {
+func (c *configController) BatchDeleteConfig(ctx *echo.Context) {
 	var req request.BatchDeleteConfigRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
 
-	if err := c.configService.BatchDelete(ctx.Request.Context(), req.IDs); err != nil {
+	if err := c.configService.BatchDelete(ctx.Request().Context(), req.IDs); err != nil {
 		response.Fail(ctx, err.Error())
 		return
 	}
@@ -170,7 +170,7 @@ func (c *configController) BatchDeleteConfig(ctx *gin.Context) {
 //	@Failure		500	{object}	response.Response								"服务器内部错误"
 //	@Router			/api/v1/config/{id} [get]
 //	@Security		Bearer
-func (c *configController) GetConfigById(ctx *gin.Context) {
+func (c *configController) GetConfigById(ctx *echo.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -178,7 +178,7 @@ func (c *configController) GetConfigById(ctx *gin.Context) {
 		return
 	}
 
-	config, err := c.configService.GetById(ctx.Request.Context(), id)
+	config, err := c.configService.GetById(ctx.Request().Context(), id)
 	if err != nil {
 		response.Fail(ctx, err.Error())
 		return
@@ -200,15 +200,15 @@ func (c *configController) GetConfigById(ctx *gin.Context) {
 //	@Failure		400				{object}	response.Response			"请求参数错误"
 //	@Router			/api/v1/config/page [post]
 //	@Security		Bearer
-func (c *configController) PageConfig(ctx *gin.Context) {
+func (c *configController) PageConfig(ctx *echo.Context) {
 	var req request.PageConfigRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
 
 	page, err := c.configService.Page(
-		ctx.Request.Context(),
+		ctx.Request().Context(),
 		req.PageNum,
 		req.PageSize,
 		req.Code,
@@ -234,14 +234,14 @@ func (c *configController) PageConfig(ctx *gin.Context) {
 //	@Failure		400		{object}	response.Response									"请求参数错误"
 //	@Failure		500		{object}	response.Response									"服务器内部错误"
 //	@Router			/api/v1/config/code [get]
-func (c *configController) GetConfigByCode(ctx *gin.Context) {
+func (c *configController) GetConfigByCode(ctx *echo.Context) {
 	var req request.GetConfigByCodeRequest
-	if err := ctx.ShouldBindQuery(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
 
-	configs, err := c.configService.GetByCode(ctx.Request.Context(), req.Code)
+	configs, err := c.configService.GetByCode(ctx.Request().Context(), req.Code)
 	if err != nil {
 		response.Fail(ctx, err.Error())
 		return
@@ -267,14 +267,14 @@ func (c *configController) GetConfigByCode(ctx *gin.Context) {
 //	@Failure		400		{object}	response.Response									"请求参数错误"
 //	@Failure		500		{object}	response.Response									"服务器内部错误"
 //	@Router			/api/v1/config/data [get]
-func (c *configController) GetConfigDataByCode(ctx *gin.Context) {
+func (c *configController) GetConfigDataByCode(ctx *echo.Context) {
 	var req request.GetConfigByCodeRequest
-	if err := ctx.ShouldBindQuery(&req); err != nil {
+	if err := ctx.Bind(&req); err != nil {
 		response.BadRequest(ctx, "请求参数错误: "+err.Error())
 		return
 	}
 
-	data, err := c.configService.GetDataByCode(ctx.Request.Context(), req.Code)
+	data, err := c.configService.GetDataByCode(ctx.Request().Context(), req.Code)
 	if err != nil {
 		response.Fail(ctx, err.Error())
 		return

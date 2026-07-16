@@ -3,13 +3,13 @@ package router
 import (
 	"github.com/gcc798/quick.admin/internal/constants"
 	"github.com/gcc798/quick.admin/internal/controller"
+	"github.com/gcc798/quick.admin/internal/httpx"
 	"github.com/gcc798/quick.admin/internal/middleware"
 	"github.com/gcc798/quick.admin/internal/service"
-	"github.com/gin-gonic/gin"
 )
 
 // registerMenuRoutes 注册菜单管理路由
-func registerMenuRoutes(r *gin.Engine, ctx *RouterContext) {
+func registerMenuRoutes(r *httpx.Router, ctx *RouterContext) {
 	// 创建 MenuService
 	menuService := service.NewMenuService(ctx.Container.GetDB())
 

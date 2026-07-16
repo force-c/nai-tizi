@@ -17,7 +17,7 @@ import (
 	"github.com/gcc798/quick.admin/internal/domain/response"
 	"github.com/gcc798/quick.admin/internal/service"
 	"github.com/gcc798/quick.admin/internal/utils"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v5"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -25,9 +25,9 @@ import (
 
 // AuthController 定义业务数据结构。
 type AuthController interface {
-	Login(c *gin.Context)        // 用户登录
-	Logout(c *gin.Context)       // 用户登出
-	RefreshToken(c *gin.Context) // 刷新访问令牌
+	Login(c *echo.Context)        // 用户登录
+	Logout(c *echo.Context)       // 用户登出
+	RefreshToken(c *echo.Context) // 刷新访问令牌
 }
 
 type authController struct {
@@ -78,15 +78,15 @@ func NewAuthController(c container.Container) AuthController {
 //	@Failure		400		{object}	response.Response	"参数错误"
 //	@Failure		401		{object}	response.Response	"认证失败"
 //	@Router			/login [post]
-func (h *authController) Login(c *gin.Context) {
+func (h *authController) Login(c *echo.Context) {
 	var req LoginRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.Bind(&req); err != nil {
 		response.FailCode(c, response.CodeInvalidParam, "参数错误: "+err.Error())
 		return
 	}
-	ctx := c.Request.Context()
+	ctx := c.Request().Context()
 	req.Normalize()
-	req.LoginIP = c.ClientIP()
+	req.LoginIP = c.RealIP()
 	loginAccount := resolveLoginAccount(&req)
 
 	client, err := h.authenticateClient(ctx, &req)
@@ -207,11 +207,11 @@ func buildLoginResponse(accessToken, refreshToken string, accessExpiresIn, refre
 //	@Security		Bearer
 //	@Success		200	{object}	response.Response{data=string}
 //	@Router			/logout [post]
-func (h *authController) Logout(c *gin.Context) {
-	ctx := c.Request.Context()
+func (h *authController) Logout(c *echo.Context) {
+	ctx := c.Request().Context()
 
 	tokenHeader := h.ctr.GetConfig().Auth.TokenHeader
-	token := c.GetHeader(tokenHeader)
+	token := c.Request().Header.Get(tokenHeader)
 	token = strings.TrimPrefix(token, "Bearer ")
 
 	if token == "" {
@@ -250,13 +250,13 @@ func (h *authController) Logout(c *gin.Context) {
 //	@Failure		400		{object}	response.Response	"参数错误"
 //	@Failure		401		{object}	response.Response	"RefreshToken 无效或已过期"
 //	@Router			/auth/refresh [post]
-func (h *authController) RefreshToken(c *gin.Context) {
+func (h *authController) RefreshToken(c *echo.Context) {
 	var req response.RefreshTokenRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.Bind(&req); err != nil {
 		response.FailCode(c, response.CodeInvalidParam, "参数错误: "+err.Error())
 		return
 	}
-	ctx := c.Request.Context()
+	ctx := c.Request().Context()
 
 	client, err := h.clientService.AuthenticateClientID(ctx, req.ClientID, "refresh")
 	if err != nil {
@@ -287,8 +287,8 @@ func (h *authController) RefreshToken(c *gin.Context) {
 	})
 }
 
-func (h *authController) recordLoginLog(c *gin.Context, username, clientId string, status int32, message string) {
-	browser, osName := parseUserAgent(c.Request.UserAgent())
+func (h *authController) recordLoginLog(c *echo.Context, username, clientId string, status int32, message string) {
+	browser, osName := parseUserAgent(c.Request().UserAgent())
 	logEntry := &model.LoginLog{
 		ID:        idgen.MustNextID(),
 		UserName:  username,

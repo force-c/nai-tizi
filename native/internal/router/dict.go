@@ -3,12 +3,12 @@ package router
 import (
 	"github.com/gcc798/quick.admin/internal/constants"
 	"github.com/gcc798/quick.admin/internal/controller"
+	"github.com/gcc798/quick.admin/internal/httpx"
 	"github.com/gcc798/quick.admin/internal/middleware"
-	"github.com/gin-gonic/gin"
 )
 
 // registerDictRoutes 注册字典管理路由
-func registerDictRoutes(r *gin.Engine, ctx *RouterContext) {
+func registerDictRoutes(r *httpx.Router, ctx *RouterContext) {
 	dictController := controller.NewDictController(ctx.Container)
 
 	// API v1 路由组

@@ -6,12 +6,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gin-gonic/gin"
+	"github.com/gcc798/quick.admin/internal/httpx"
+	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestStringIDConverter_PathParam(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
 		name     string
@@ -41,13 +41,13 @@ func TestStringIDConverter_PathParam(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := gin.New()
+			r := httpx.NewRouter(echo.New())
 			r.Use(StringIDConverter())
-			r.GET("/test/:id", func(c *gin.Context) {
-				if parsedID, exists := c.Get("parsed_id"); exists {
-					c.JSON(200, gin.H{"id": parsedID})
+			r.GET("/test/:id", func(c *echo.Context) {
+				if parsedID := c.Get("parsed_id"); parsedID != nil {
+					c.JSON(200, map[string]any{"id": parsedID})
 				} else {
-					c.JSON(400, gin.H{"error": "ID not parsed"})
+					c.JSON(400, map[string]any{"error": "ID not parsed"})
 				}
 			})
 
@@ -69,7 +69,6 @@ func TestStringIDConverter_PathParam(t *testing.T) {
 }
 
 func TestStringIDConverter_JSONBody_SingleID(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
 		name     string
@@ -104,12 +103,12 @@ func TestStringIDConverter_JSONBody_SingleID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := gin.New()
+			r := httpx.NewRouter(echo.New())
 			r.Use(StringIDConverter())
-			r.POST("/test", func(c *gin.Context) {
+			r.POST("/test", func(c *echo.Context) {
 				var body map[string]interface{}
-				if err := c.ShouldBindJSON(&body); err != nil {
-					c.JSON(400, gin.H{"error": err.Error()})
+				if err := c.Bind(&body); err != nil {
+					c.JSON(400, map[string]any{"error": err.Error()})
 					return
 				}
 				c.JSON(200, body)
@@ -130,7 +129,6 @@ func TestStringIDConverter_JSONBody_SingleID(t *testing.T) {
 }
 
 func TestStringIDConverter_JSONBody_IDArray(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
 		name     string
@@ -150,12 +148,12 @@ func TestStringIDConverter_JSONBody_IDArray(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := gin.New()
+			r := httpx.NewRouter(echo.New())
 			r.Use(StringIDConverter())
-			r.POST("/test", func(c *gin.Context) {
+			r.POST("/test", func(c *echo.Context) {
 				var body map[string]interface{}
-				if err := c.ShouldBindJSON(&body); err != nil {
-					c.JSON(400, gin.H{"error": err.Error()})
+				if err := c.Bind(&body); err != nil {
+					c.JSON(400, map[string]any{"error": err.Error()})
 					return
 				}
 				c.JSON(200, body)
@@ -176,7 +174,6 @@ func TestStringIDConverter_JSONBody_IDArray(t *testing.T) {
 }
 
 func TestStringIDConverter_JSONBody_NestedObjects(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 
 	body := map[string]interface{}{
 		"user": map[string]interface{}{
@@ -200,12 +197,12 @@ func TestStringIDConverter_JSONBody_NestedObjects(t *testing.T) {
 		},
 	}
 
-	r := gin.New()
+	r := httpx.NewRouter(echo.New())
 	r.Use(StringIDConverter())
-	r.POST("/test", func(c *gin.Context) {
+	r.POST("/test", func(c *echo.Context) {
 		var body map[string]interface{}
-		if err := c.ShouldBindJSON(&body); err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
+		if err := c.Bind(&body); err != nil {
+			c.JSON(400, map[string]any{"error": err.Error()})
 			return
 		}
 		c.JSON(200, body)

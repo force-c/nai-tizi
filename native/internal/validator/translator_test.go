@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -58,7 +57,7 @@ func TestFieldErrorField(t *testing.T) {
 	Init()
 
 	req := TestCreateRequest{UserName: "a", Email: "bad"}
-	err := binding.Validator.ValidateStruct(&req)
+	err := engine.Struct(&req)
 
 	if err == nil {
 		t.Fatal("expected error")
@@ -95,7 +94,7 @@ func TestTranslate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := binding.Validator.ValidateStruct(&tt.req)
+			err := engine.Struct(tt.req)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateStruct() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -168,7 +167,7 @@ func TestTranslateWithMsg(t *testing.T) {
 			var msg string
 			switch req := tt.req.(type) {
 			case TestCreateRequest:
-				err := binding.Validator.ValidateStruct(&req)
+				err := engine.Struct(&req)
 				if (err != nil) != tt.wantErr {
 					t.Errorf("ValidateStruct() error = %v, wantErr %v", err, tt.wantErr)
 					return
@@ -177,7 +176,7 @@ func TestTranslateWithMsg(t *testing.T) {
 					msg = TranslateWithMsg(err, &req)
 				}
 			case TestUpdateRequest:
-				err := binding.Validator.ValidateStruct(&req)
+				err := engine.Struct(&req)
 				if (err != nil) != tt.wantErr {
 					t.Errorf("ValidateStruct() error = %v, wantErr %v", err, tt.wantErr)
 					return

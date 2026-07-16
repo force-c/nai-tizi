@@ -115,14 +115,14 @@ func TranslateWithScene(err error, scene Scene) string {
 ```go
 // 创建用户场景
 var createReq request.CreateUserRequest
-if err := c.ShouldBindJSON(&createReq); err != nil {
+if err := c.Bind(&createReq); err != nil {
     response.FailCode(c, 400, validator.TranslateWithScene(err, validator.SceneCreate))
     return
 }
 
 // 更新用户场景
 var updateReq request.UpdateUserRequest
-if err := c.ShouldBindJSON(&updateReq); err != nil {
+if err := c.Bind(&updateReq); err != nil {
     response.FailCode(c, 400, validator.TranslateWithScene(err, validator.SceneUpdate))
     return
 }
@@ -207,7 +207,7 @@ func TranslateWithType(err error, typeName string) string {
 
 ```go
 var req request.CreateUserRequest
-if err := c.ShouldBindJSON(&req); err != nil {
+if err := c.Bind(&req); err != nil {
     response.FailCode(c, 400, validator.TranslateWithType(err, "CreateUserRequest"))
     return
 }

@@ -3,12 +3,12 @@ package router
 import (
 	"github.com/gcc798/quick.admin/internal/constants"
 	"github.com/gcc798/quick.admin/internal/controller"
+	"github.com/gcc798/quick.admin/internal/httpx"
 	"github.com/gcc798/quick.admin/internal/middleware"
-	"github.com/gin-gonic/gin"
 )
 
 // registerOrgRoutes 注册组织管理路由
-func registerOrgRoutes(r *gin.Engine, ctx *RouterContext) {
+func registerOrgRoutes(r *httpx.Router, ctx *RouterContext) {
 	// 初始化 controller
 	orgController := controller.NewOrgController(ctx.Container)
 

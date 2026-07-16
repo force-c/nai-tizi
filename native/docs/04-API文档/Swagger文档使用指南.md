@@ -110,7 +110,7 @@ go run cmd/api/main.go
 // @Failure      400 {object} response.Response "参数错误"
 // @Failure      401 {object} response.Response "认证失败"
 // @Router       /login [post]
-func (h *authController) Login(c *gin.Context) {
+func (h *authController) Login(c *echo.Context) {
     // ...
 }
 ```
@@ -175,7 +175,7 @@ type LoginRequest struct {
 // @Failure      400 {object} response.Response
 // @Failure      401 {object} response.Response
 // @Router       /users [post]
-func (h *userController) CreateUser(c *gin.Context) {
+func (h *userController) CreateUser(c *echo.Context) {
     // 实现代码
 }
 ```

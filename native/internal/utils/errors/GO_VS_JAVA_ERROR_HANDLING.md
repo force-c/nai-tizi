@@ -87,8 +87,8 @@ func (s *userService) Create(ctx context.Context, req *request.CreateUserRequest
 }
 
 // ✅ Controller 层统一错误处理
-func (c *userController) Create(ctx *gin.Context) {
-    err := c.userService.Create(ctx.Request.Context(), &req)
+func (c *userController) Create(ctx *echo.Context) {
+    err := c.userService.Create(ctx.Request().Context(), &req)
     if err != nil {
         response.Error(ctx, err)  // 自动识别错误类型并处理
         return
@@ -104,26 +104,23 @@ func (c *userController) Create(ctx *gin.Context) {
 ### 全局 Panic 恢复中间件
 
 ```go
-func Recovery(logger *zap.Logger) gin.HandlerFunc {
-    return func(c *gin.Context) {
-        defer func() {
-            if err := recover(); err != nil {
-                // 自动记录详细堆栈
-                logger.Error("系统 Panic 捕获",
-                    zap.Any("error", err),
-                    zap.String("path", c.Request.URL.Path),
-                    zap.String("stack", string(debug.Stack())))
-                
-                // 自动返回统一文案
-                c.JSON(500, Response{
-                    Code: 30001,
-                    Msg:  "系统异常，请联系管理员",
-                })
-                c.Abort()
-            }
-        }()
-        
-        c.Next()  // 执行后续的所有 Handler
+func Recovery(logger *zap.Logger) echo.MiddlewareFunc {
+    return func(next echo.HandlerFunc) echo.HandlerFunc {
+        return func(c *echo.Context) (handlerErr error) {
+            defer func() {
+                if err := recover(); err != nil {
+                    logger.Error("系统 Panic 捕获",
+                        zap.Any("error", err),
+                        zap.String("path", c.Request().URL.Path),
+                        zap.String("stack", string(debug.Stack())))
+                    handlerErr = c.JSON(500, Response{
+                        Code: 30001,
+                        Msg:  "系统异常，请联系管理员",
+                    })
+                }
+            }()
+            return next(c)
+        }
     }
 }
 ```
