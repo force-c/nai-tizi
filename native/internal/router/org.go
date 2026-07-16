@@ -18,35 +18,35 @@ func registerOrgRoutes(r *gin.Engine, ctx *RouterContext) {
 	{
 		// 组织创建
 		orgs.POST("",
-			middleware.Permission(ctx.CasbinService, constants.ResourceOrgCreate),
+			middleware.Permission(ctx.PermissionService, constants.ResourceOrgCreate),
 			orgController.Create) // 创建组织
 
 		// 组织查询
 		orgs.POST("/page",
-			middleware.Permission(ctx.CasbinService, constants.ResourceOrgRead),
+			middleware.Permission(ctx.PermissionService, constants.ResourceOrgRead),
 			orgController.PageOrg) // 分页查询组织列表
 		orgs.GET("/tree",
-			middleware.Permission(ctx.CasbinService, constants.ResourceOrgRead),
+			middleware.Permission(ctx.PermissionService, constants.ResourceOrgRead),
 			orgController.GetTree) // 获取组织树
 
 		// 批量删除组织
 		orgs.DELETE("/batch",
-			middleware.Permission(ctx.CasbinService, constants.ResourceOrgDelete),
+			middleware.Permission(ctx.PermissionService, constants.ResourceOrgDelete),
 			orgController.BatchDelete) // 批量删除组织
 
 		// 组织更新（带参数的路由放在后面）
 		orgs.PUT("/:id",
-			middleware.Permission(ctx.CasbinService, constants.ResourceOrgUpdate),
+			middleware.Permission(ctx.PermissionService, constants.ResourceOrgUpdate),
 			orgController.Update) // 更新组织
 
 		// 组织查询（带参数的路由放在最后）
 		orgs.GET("/:id",
-			middleware.Permission(ctx.CasbinService, constants.ResourceOrgRead),
+			middleware.Permission(ctx.PermissionService, constants.ResourceOrgRead),
 			orgController.GetById) // 根据ID查询组织
 
 		// 组织删除（带参数的路由放在最后）
 		orgs.DELETE("/:id",
-			middleware.Permission(ctx.CasbinService, constants.ResourceOrgDelete),
+			middleware.Permission(ctx.PermissionService, constants.ResourceOrgDelete),
 			orgController.Delete) // 删除单个组织
 	}
 }

@@ -18,21 +18,21 @@ func registerLoginLogRoutes(r *gin.Engine, ctx *RouterContext) {
 		loginLog.Use(ctx.AuthMiddleware) // 添加认证中间件
 		{
 			// 创建登录日志 - 需要 login_log.create 权限
-			loginLog.POST("", middleware.Permission(ctx.CasbinService, constants.ResourceLoginLogCreate), loginLogController.CreateLoginLog)
+			loginLog.POST("", middleware.Permission(ctx.PermissionService, constants.ResourceLoginLogCreate), loginLogController.CreateLoginLog)
 
 			// 分页查询登录日志列表 - 需要 login_log.read 权限
-			loginLog.POST("/page", middleware.Permission(ctx.CasbinService, constants.ResourceLoginLogRead), loginLogController.PageLoginLog)
+			loginLog.POST("/page", middleware.Permission(ctx.PermissionService, constants.ResourceLoginLogRead), loginLogController.PageLoginLog)
 
 			// 批量删除登录日志 - 需要 login_log.delete 权限
-			loginLog.DELETE("/batch", middleware.Permission(ctx.CasbinService, constants.ResourceLoginLogDelete), loginLogController.BatchDeleteLoginLog)
+			loginLog.DELETE("/batch", middleware.Permission(ctx.PermissionService, constants.ResourceLoginLogDelete), loginLogController.BatchDeleteLoginLog)
 
 			// 清理登录日志 - 需要 login_log.delete 权限
-			loginLog.POST("/clean", middleware.Permission(ctx.CasbinService, constants.ResourceLoginLogDelete), loginLogController.CleanLoginLog)
+			loginLog.POST("/clean", middleware.Permission(ctx.PermissionService, constants.ResourceLoginLogDelete), loginLogController.CleanLoginLog)
 
 			// 更新、查询和删除登录日志 - 需要 login_log.update/read/delete 权限（带参数的路由放在最后）
-			loginLog.PUT("/:id", middleware.Permission(ctx.CasbinService, constants.ResourceLoginLogUpdate), loginLogController.UpdateLoginLog)
-			loginLog.GET("/:id", middleware.Permission(ctx.CasbinService, constants.ResourceLoginLogRead), loginLogController.GetLoginLogById)
-			loginLog.DELETE("/:id", middleware.Permission(ctx.CasbinService, constants.ResourceLoginLogDelete), loginLogController.DeleteLoginLog)
+			loginLog.PUT("/:id", middleware.Permission(ctx.PermissionService, constants.ResourceLoginLogUpdate), loginLogController.UpdateLoginLog)
+			loginLog.GET("/:id", middleware.Permission(ctx.PermissionService, constants.ResourceLoginLogRead), loginLogController.GetLoginLogById)
+			loginLog.DELETE("/:id", middleware.Permission(ctx.PermissionService, constants.ResourceLoginLogDelete), loginLogController.DeleteLoginLog)
 		}
 	}
 }

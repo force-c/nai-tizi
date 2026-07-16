@@ -85,10 +85,3 @@ type BatchRoleUsersRequest struct {
 type AssignRoleMenusRequest struct {
 	MenuIds []Int64ID `json:"menuIds" msg:"菜单ID列表" example:"1001,1002"` // 菜单ID列表
 }
-
-// AddRolePermissionRequest 为角色添加权限请求
-type AddRolePermissionRequest struct {
-	RoleKey  string `json:"roleKey" binding:"required" msg:"角色标识不能为空" example:"user_manager"` // 角色标识
-	Resource string `json:"resource" binding:"required" msg:"资源路径不能为空" example:"user.*"`      // 资源路径（支持通配符）
-	Action   string `json:"action" binding:"required" msg:"操作类型不能为空" example:"write"`         // 操作类型（支持通配符）
-}

@@ -16,22 +16,19 @@ import (
 
 // RoleController 角色控制器接口
 type RoleController interface {
-	CreateRole(ctx *gin.Context)           // 创建角色
-	UpdateRole(ctx *gin.Context)           // 更新角色
-	DeleteRole(ctx *gin.Context)           // 删除角色
-	GetRole(ctx *gin.Context)              // 获取角色详情
-	PageRole(ctx *gin.Context)             // 分页查询角色列表
-	AssignRoleToUser(ctx *gin.Context)     // 为用户分配角色
-	RemoveRoleFromUser(ctx *gin.Context)   // 移除用户的角色
-	GetUserRoles(ctx *gin.Context)         // 获取用户的所有角色
-	GetRoleUsers(ctx *gin.Context)         // 获取角色下的用户
-	AssignUsersToRole(ctx *gin.Context)    // 批量为角色添加用户
-	RemoveUsersFromRole(ctx *gin.Context)  // 批量移除角色下的用户
-	GetRoleMenus(ctx *gin.Context)         // 获取角色菜单
-	AssignRoleMenus(ctx *gin.Context)      // 分配角色菜单
-	AddRolePermission(ctx *gin.Context)    // 为角色添加权限
-	DeleteRolePermission(ctx *gin.Context) // 删除角色权限
-	GetRolePermissions(ctx *gin.Context)   // 获取角色的所有权限
+	CreateRole(ctx *gin.Context)          // 创建角色
+	UpdateRole(ctx *gin.Context)          // 更新角色
+	DeleteRole(ctx *gin.Context)          // 删除角色
+	GetRole(ctx *gin.Context)             // 获取角色详情
+	PageRole(ctx *gin.Context)            // 分页查询角色列表
+	AssignRoleToUser(ctx *gin.Context)    // 为用户分配角色
+	RemoveRoleFromUser(ctx *gin.Context)  // 移除用户的角色
+	GetUserRoles(ctx *gin.Context)        // 获取用户的所有角色
+	GetRoleUsers(ctx *gin.Context)        // 获取角色下的用户
+	AssignUsersToRole(ctx *gin.Context)   // 批量为角色添加用户
+	RemoveUsersFromRole(ctx *gin.Context) // 批量移除角色下的用户
+	GetRoleMenus(ctx *gin.Context)        // 获取角色菜单
+	AssignRoleMenus(ctx *gin.Context)     // 分配角色菜单
 }
 
 type roleController struct {
@@ -41,9 +38,8 @@ type roleController struct {
 
 // NewRoleController 创建组件实例。
 func NewRoleController(c container.Container) RoleController {
-	casbinService := service.NewCasbinServiceV2(c.GetCasbin(), c.GetDB(), c.GetLogger())
 	return &roleController{
-		roleService: service.NewRoleService(c.GetDB(), casbinService, c.GetLogger()),
+		roleService: service.NewRoleService(c.GetDB(), c.GetLogger()),
 		logger:      c.GetLogger(),
 	}
 }
@@ -433,85 +429,4 @@ func (c *roleController) AssignRoleMenus(ctx *gin.Context) {
 		return
 	}
 	response.Success(ctx, nil)
-}
-
-// AddRolePermission 为角色添加权限
-//
-//	@Summary		为角色添加权限
-//	@Description	为角色添加权限（支持通配符）
-//	@Tags			角色管理
-//	@Accept			json
-//	@Produce		json
-//	@Param			Authorization	header		string								true	"Bearer {token}"
-//	@Param			body			body		request.AddRolePermissionRequest	true	"权限信息"
-//	@Success		200				{object}	response.Response
-//	@Failure		400				{object}	response.Response	"参数错误"
-//	@Router			/api/v1/role/permission [post]
-func (c *roleController) AddRolePermission(ctx *gin.Context) {
-	var req request.AddRolePermissionRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(ctx, "参数错误: "+err.Error())
-		return
-	}
-
-	if err := c.roleService.AddRolePermission(ctx.Request.Context(), req.RoleKey, req.Resource, req.Action); err != nil {
-		c.logger.Error("为角色添加权限失败", zap.Error(err))
-		response.InternalServerError(ctx, "为角色添加权限失败: "+err.Error())
-		return
-	}
-
-	response.Success(ctx, nil)
-}
-
-// DeleteRolePermission 删除角色权限
-//
-//	@Summary		删除角色权限
-//	@Description	删除角色的指定权限
-//	@Tags			角色管理
-//	@Accept			json
-//	@Produce		json
-//	@Param			Authorization	header		string	true	"Bearer {token}"
-//	@Param			roleKey			query		string	true	"角色标识"
-//	@Param			resource		query		string	true	"资源路径"
-//	@Param			action			query		string	true	"操作类型"
-//	@Success		200				{object}	response.Response
-//	@Failure		400				{object}	response.Response	"参数错误"
-//	@Router			/api/v1/role/permission [delete]
-func (c *roleController) DeleteRolePermission(ctx *gin.Context) {
-	roleKey := ctx.Query("roleKey")
-	resource := ctx.Query("resource")
-	action := ctx.Query("action")
-
-	if err := c.roleService.DeleteRolePermission(ctx.Request.Context(), roleKey, resource, action); err != nil {
-		c.logger.Error("删除角色权限失败", zap.Error(err))
-		response.InternalServerError(ctx, "删除角色权限失败: "+err.Error())
-		return
-	}
-
-	response.Success(ctx, nil)
-}
-
-// GetRolePermissions 获取角色的所有权限
-//
-//	@Summary		获取角色的所有权限
-//	@Description	获取角色的所有权限
-//	@Tags			角色管理
-//	@Accept			json
-//	@Produce		json
-//	@Param			Authorization	header		string	true	"Bearer {token}"
-//	@Param			roleKey			query		string	true	"角色标识"
-//	@Success		200				{object}	response.Response{data=object}
-//	@Failure		400				{object}	response.Response	"参数错误"
-//	@Router			/api/v1/role/permissions [get]
-func (c *roleController) GetRolePermissions(ctx *gin.Context) {
-	roleKey := ctx.Query("roleKey")
-
-	permissions, err := c.roleService.GetRolePermissions(ctx.Request.Context(), roleKey)
-	if err != nil {
-		c.logger.Error("获取角色权限失败", zap.Error(err))
-		response.InternalServerError(ctx, "获取角色权限失败: "+err.Error())
-		return
-	}
-
-	response.Success(ctx, permissions)
 }

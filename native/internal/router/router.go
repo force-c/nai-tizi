@@ -13,11 +13,11 @@ import (
 
 // RouterContext 定义业务数据结构。
 type RouterContext struct {
-	Container      container.Container
-	Bootstrap      *bootstrap.Bootstrap
-	TokenManager   service.TokenManager
-	CasbinService  service.CasbinServiceV2
-	AuthMiddleware gin.HandlerFunc
+	Container         container.Container
+	Bootstrap         *bootstrap.Bootstrap
+	TokenManager      service.TokenManager
+	PermissionService service.PermissionService
+	AuthMiddleware    gin.HandlerFunc
 }
 
 // Setup 配置所有路由。
@@ -33,16 +33,16 @@ func Setup(r *gin.Engine, c container.Container, b *bootstrap.Bootstrap) {
 
 	// 初始化统一的中间件（除了 auth 模块，其他模块都需要认证）
 	tokenManager := service.NewTokenManager(c.GetJWT(), c.GetRedis(), c.GetLogger())
-	casbinService := service.NewCasbinServiceV2(c.GetCasbin(), c.GetDB(), c.GetLogger())
+	permissionService := service.NewPermissionService(c.GetDB(), c.GetLogger())
 	authMiddleware := middleware.Auth(tokenManager, c.GetConfig())
 
 	// 创建路由上下文
 	ctx := &RouterContext{
-		Container:      c,
-		Bootstrap:      b,
-		TokenManager:   tokenManager,
-		CasbinService:  casbinService,
-		AuthMiddleware: authMiddleware,
+		Container:         c,
+		Bootstrap:         b,
+		TokenManager:      tokenManager,
+		PermissionService: permissionService,
+		AuthMiddleware:    authMiddleware,
 	}
 
 	// 注册公共路由（无前缀，部分需要认证）

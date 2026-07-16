@@ -187,8 +187,15 @@ func (s *userService) Delete(ctx context.Context, userId int64) error {
 		return apperrors.NewInfrastructure(apperrors.CodeDatabaseError, "数据库查询失败", err)
 	}
 
-	// 调用模型层的删除方法
-	if err := user.Delete(s.db, userId); err != nil {
+	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("user_id = ?", userId).Delete(&model.MUserRole{}).Error; err != nil {
+			return fmt.Errorf("删除用户角色关联失败: %w", err)
+		}
+		if err := tx.Where("user_id = ?", userId).Delete(&model.MUserApiPermission{}).Error; err != nil {
+			return fmt.Errorf("删除用户 API 权限关联失败: %w", err)
+		}
+		return user.Delete(tx, userId)
+	}); err != nil {
 		s.logger.Error("删除用户失败", zap.Error(err))
 		return fmt.Errorf("删除用户失败: %w", err)
 	}
@@ -203,8 +210,18 @@ func (s *userService) BatchDelete(ctx context.Context, userIds []int64) error {
 		return fmt.Errorf("用户ID列表不能为空")
 	}
 
-	// 调用模型层的批量删除方法
-	rowsAffected, err := (&model.User{}).BatchDelete(s.db, userIds)
+	var rowsAffected int64
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("user_id IN ?", userIds).Delete(&model.MUserRole{}).Error; err != nil {
+			return fmt.Errorf("删除用户角色关联失败: %w", err)
+		}
+		if err := tx.Where("user_id IN ?", userIds).Delete(&model.MUserApiPermission{}).Error; err != nil {
+			return fmt.Errorf("删除用户 API 权限关联失败: %w", err)
+		}
+		var err error
+		rowsAffected, err = (&model.User{}).BatchDelete(tx, userIds)
+		return err
+	})
 	if err != nil {
 		s.logger.Error("批量删除用户失败", zap.Error(err))
 		return fmt.Errorf("批量删除用户失败: %w", err)

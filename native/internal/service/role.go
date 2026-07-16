@@ -32,10 +32,10 @@ type RoleService interface {
 	// Page 分页查询角色列表
 	Page(ctx context.Context, pageNum, pageSize int, roleName string, status int32) (*pagination.Page[model.Role], error)
 
-	// AssignRoleToUser 为用户分配角色（包含 Casbin 同步）
+	// AssignRoleToUser 为用户分配角色
 	AssignRoleToUser(ctx context.Context, userId, roleId int64) error
 
-	// RemoveRoleFromUser 移除用户的角色（包含 Casbin 同步）
+	// RemoveRoleFromUser 移除用户的角色
 	RemoveRoleFromUser(ctx context.Context, userId, roleId int64) error
 
 	// GetUserRoles 获取用户的所有角色
@@ -55,29 +55,18 @@ type RoleService interface {
 
 	// GetRoleMenus 获取角色的所有菜单
 	GetRoleMenus(ctx context.Context, roleId int64) ([]model.Menu, error)
-
-	// AddRolePermission 为角色添加权限
-	AddRolePermission(ctx context.Context, roleKey string, resource, action string) error
-
-	// DeleteRolePermission 删除角色权限
-	DeleteRolePermission(ctx context.Context, roleKey string, resource, action string) error
-
-	// GetRolePermissions 获取角色的所有权限
-	GetRolePermissions(ctx context.Context, roleKey string) ([][]string, error)
 }
 
 type roleService struct {
-	db            *gorm.DB
-	casbinService CasbinServiceV2
-	logger        logger.Logger
+	db     *gorm.DB
+	logger logger.Logger
 }
 
 // NewRoleService 创建角色服务实例
-func NewRoleService(db *gorm.DB, casbinService CasbinServiceV2, logger logger.Logger) RoleService {
+func NewRoleService(db *gorm.DB, logger logger.Logger) RoleService {
 	return &roleService{
-		db:            db,
-		casbinService: casbinService,
-		logger:        logger,
+		db:     db,
+		logger: logger,
 	}
 }
 
@@ -171,6 +160,9 @@ func (s *roleService) Delete(ctx context.Context, roleId int64) error {
 		if _, err := gorm.G[model.MRoleMenu](tx).Where("role_id = ?", roleId).Delete(ctx); err != nil {
 			return fmt.Errorf("删除角色菜单关联失败: %w", err)
 		}
+		if _, err := gorm.G[model.MRoleApiPermission](tx).Where("role_id = ?", roleId).Delete(ctx); err != nil {
+			return fmt.Errorf("删除角色 API 权限关联失败: %w", err)
+		}
 
 		// 删除角色
 		if _, err := gorm.G[model.Role](tx).Where("id = ?", roleId).Delete(ctx); err != nil {
@@ -238,7 +230,7 @@ func (s *roleService) Page(ctx context.Context, pageNum, pageSize int, roleName 
 	return page, nil
 }
 
-// AssignRoleToUser 为用户分配角色（包含 Casbin 同步）
+// AssignRoleToUser 为用户分配角色
 func (s *roleService) AssignRoleToUser(ctx context.Context, userId, roleId int64) error {
 	// 使用事务确保数据一致性
 	return s.db.Transaction(func(tx *gorm.DB) error {
@@ -280,16 +272,6 @@ func (s *roleService) AssignRoleToUser(ctx context.Context, userId, roleId int64
 			return fmt.Errorf("分配用户角色失败: %w", err)
 		}
 
-		// 5. 同步到 Casbin（在事务外执行，失败不影响数据库操作）
-		// 注意：Casbin 操作失败只记录日志，不回滚事务
-		if err := s.casbinService.AddRoleForUser(ctx, userId, role.RoleKey); err != nil {
-			s.logger.Error("同步 Casbin 失败",
-				zap.Int64("userId", userId),
-				zap.String("roleKey", role.RoleKey),
-				zap.Error(err))
-			// 不返回错误，允许继续
-		}
-
 		s.logger.Info("为用户分配角色成功",
 			zap.Int64("userId", userId),
 			zap.Int64("roleId", roleId),
@@ -299,11 +281,11 @@ func (s *roleService) AssignRoleToUser(ctx context.Context, userId, roleId int64
 	})
 }
 
-// RemoveRoleFromUser 移除用户的角色（包含 Casbin 同步）
+// RemoveRoleFromUser 移除用户的角色
 func (s *roleService) RemoveRoleFromUser(ctx context.Context, userId, roleId int64) error {
 	// 使用事务确保数据一致性
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// 1. 获取角色信息（用于 Casbin 同步）
+		// 1. 检查角色是否存在
 		role, err := gorm.G[model.Role](tx).Where("id = ?", roleId).First(ctx)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -322,15 +304,6 @@ func (s *roleService) RemoveRoleFromUser(ctx context.Context, userId, roleId int
 
 		if rowsAffected == 0 {
 			return fmt.Errorf("用户角色关系不存在")
-		}
-
-		// 3. 从 Casbin 移除（在事务外执行，失败不影响数据库操作）
-		if err := s.casbinService.DeleteRoleForUser(ctx, userId, role.RoleKey); err != nil {
-			s.logger.Error("从 Casbin 移除角色失败",
-				zap.Int64("userId", userId),
-				zap.String("roleKey", role.RoleKey),
-				zap.Error(err))
-			// 不返回错误，允许继续
 		}
 
 		s.logger.Info("移除用户角色成功",
@@ -390,7 +363,7 @@ func (s *roleService) AssignUsersToRole(ctx context.Context, roleId int64, userI
 		return nil
 	}
 
-	role, err := gorm.G[model.Role](s.db).Where("id = ?", roleId).First(ctx)
+	_, err := gorm.G[model.Role](s.db).Where("id = ?", roleId).First(ctx)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("角色不存在")
@@ -442,15 +415,6 @@ func (s *roleService) AssignUsersToRole(ctx context.Context, roleId int64, userI
 			return fmt.Errorf("批量分配角色用户失败: %w", err)
 		}
 
-		for _, row := range toCreate {
-			if err := s.casbinService.AddRoleForUser(ctx, row.UserId, role.RoleKey); err != nil {
-				s.logger.Error("同步 Casbin 失败",
-					zap.Int64("userId", row.UserId),
-					zap.String("roleKey", role.RoleKey),
-					zap.Error(err))
-			}
-		}
-
 		s.logger.Info("批量为角色添加用户成功",
 			zap.Int64("roleId", roleId),
 			zap.Int("userCount", len(toCreate)))
@@ -466,7 +430,7 @@ func (s *roleService) RemoveUsersFromRole(ctx context.Context, roleId int64, use
 		return nil
 	}
 
-	role, err := gorm.G[model.Role](s.db).Where("id = ?", roleId).First(ctx)
+	_, err := gorm.G[model.Role](s.db).Where("id = ?", roleId).First(ctx)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("角色不存在")
@@ -481,15 +445,6 @@ func (s *roleService) RemoveUsersFromRole(ctx context.Context, roleId int64, use
 			return fmt.Errorf("批量移除角色用户失败: %w", err)
 		}
 
-		for _, userId := range userIds {
-			if err := s.casbinService.DeleteRoleForUser(ctx, userId, role.RoleKey); err != nil {
-				s.logger.Error("从 Casbin 移除角色失败",
-					zap.Int64("userId", userId),
-					zap.String("roleKey", role.RoleKey),
-					zap.Error(err))
-			}
-		}
-
 		s.logger.Info("批量移除角色用户成功",
 			zap.Int64("roleId", roleId),
 			zap.Int("userCount", len(userIds)))
@@ -501,7 +456,7 @@ func (s *roleService) RemoveUsersFromRole(ctx context.Context, roleId int64, use
 // AssignMenusToRole 为角色分配菜单权限
 func (s *roleService) AssignMenusToRole(ctx context.Context, roleId int64, menuIds []int64) error {
 	// 检查角色是否存在
-	role, err := gorm.G[model.Role](s.db).Where("id = ?", roleId).First(ctx)
+	_, err := gorm.G[model.Role](s.db).Where("id = ?", roleId).First(ctx)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("角色不存在")
@@ -554,21 +509,6 @@ func (s *roleService) AssignMenusToRole(ctx context.Context, roleId int64, menuI
 		return nil
 	}); err != nil {
 		return err
-	}
-
-	if err := s.casbinService.DeletePermissionsForRole(ctx, role.RoleKey, removedApiPermissions); err != nil {
-		s.logger.Error("批量删除角色菜单联动 API 权限 Casbin 策略失败",
-			zap.Int64("roleId", roleId),
-			zap.String("roleKey", role.RoleKey),
-			zap.Int("permissionCount", len(removedApiPermissions)),
-			zap.Error(err))
-	}
-	if err := s.casbinService.AddPermissionsForRole(ctx, role.RoleKey, desiredApiPermissions); err != nil {
-		s.logger.Error("批量添加角色菜单联动 API 权限 Casbin 策略失败",
-			zap.Int64("roleId", roleId),
-			zap.String("roleKey", role.RoleKey),
-			zap.Int("permissionCount", len(desiredApiPermissions)),
-			zap.Error(err))
 	}
 
 	return nil
@@ -752,55 +692,4 @@ func (s *roleService) GetRoleMenus(ctx context.Context, roleId int64) ([]model.M
 	}
 
 	return menus, nil
-}
-
-// AddRolePermission 为角色添加权限
-func (s *roleService) AddRolePermission(ctx context.Context, roleKey string, resource, action string) error {
-	if err := s.casbinService.AddPermissionForRole(ctx, roleKey, resource, action); err != nil {
-		s.logger.Error("为角色添加权限失败",
-			zap.String("roleKey", roleKey),
-			zap.String("resource", resource),
-			zap.String("action", action),
-			zap.Error(err))
-		return fmt.Errorf("为角色添加权限失败: %w", err)
-	}
-
-	s.logger.Info("为角色添加权限成功",
-		zap.String("roleKey", roleKey),
-		zap.String("resource", resource),
-		zap.String("action", action))
-
-	return nil
-}
-
-// DeleteRolePermission 删除角色权限
-func (s *roleService) DeleteRolePermission(ctx context.Context, roleKey string, resource, action string) error {
-	if err := s.casbinService.DeletePermissionForRole(ctx, roleKey, resource, action); err != nil {
-		s.logger.Error("删除角色权限失败",
-			zap.String("roleKey", roleKey),
-			zap.String("resource", resource),
-			zap.String("action", action),
-			zap.Error(err))
-		return fmt.Errorf("删除角色权限失败: %w", err)
-	}
-
-	s.logger.Info("删除角色权限成功",
-		zap.String("roleKey", roleKey),
-		zap.String("resource", resource),
-		zap.String("action", action))
-
-	return nil
-}
-
-// GetRolePermissions 获取角色的所有权限
-func (s *roleService) GetRolePermissions(ctx context.Context, roleKey string) ([][]string, error) {
-	permissions, err := s.casbinService.GetPermissionsForRole(ctx, roleKey)
-	if err != nil {
-		s.logger.Error("获取角色权限失败",
-			zap.String("roleKey", roleKey),
-			zap.Error(err))
-		return nil, fmt.Errorf("获取角色权限失败: %w", err)
-	}
-
-	return permissions, nil
 }

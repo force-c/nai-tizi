@@ -1,6 +1,6 @@
 -- 系统管理 / 权限管理菜单初始化
 -- 说明：
--- 1. s_menu.perms 仅用于前端权限判断，后端接口鉴权以 s_api_permission.code + Casbin 为准。
+-- 1. s_menu.perms 仅用于前端权限判断，后端接口鉴权以 s_api_permission.code 和权限关联表为准。
 -- 2. 本脚本可重复执行；已存在同名同父级菜单时会跳过插入。
 
 INSERT INTO s_menu (
@@ -211,7 +211,6 @@ WITH seed (
     (2030, 'role.*', 'role', 'role.update', '角色更新', 2, 'write', 'PUT,POST', '/api/v1/role/:roleId,/api/v1/role/:roleId/menus', 30, 0, '更新角色和分配角色菜单'),
     (2040, 'role.*', 'role', 'role.delete', '角色删除', 2, 'write', 'DELETE', '/api/v1/role/:roleId', 40, 0, '删除角色'),
     (2050, 'role.*', 'role', 'role.assign', '用户角色分配', 2, 'write', 'POST,DELETE', '/api/v1/role/assign,/api/v1/role/remove', 50, 0, '为用户分配或移除角色'),
-    (2060, 'role.*', 'role', 'role.permission', '角色旧权限接口', 2, 'write', 'GET,POST,DELETE', '/api/v1/role/permission,/api/v1/role/permissions', 60, 0, '兼容旧角色权限接口'),
 
     (3000, '', 'menu', 'menu.*', '菜单管理', 0, '*', '*', '/api/v1/menu/*', 30, 0, '菜单管理模块全部 API 权限'),
     (3010, 'menu.*', 'menu', 'menu.read', '菜单查询', 2, 'read', 'GET', '/api/v1/menu/tree,/api/v1/menu,/api/v1/menu/:id', 10, 0, '菜单树、列表和详情查询'),

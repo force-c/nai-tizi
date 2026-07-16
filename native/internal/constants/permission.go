@@ -14,8 +14,6 @@ const (
 	ResourceRoleDelete = "role.delete"
 	// ResourceRoleAssign 定义业务常量。
 	ResourceRoleAssign = "role.assign"
-	// ResourceRolePermission 定义业务常量。
-	ResourceRolePermission = "role.permission"
 
 	// ResourceApiPermission API权限管理
 	ResourceApiPermission = "api_permission"

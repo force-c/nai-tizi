@@ -7,13 +7,11 @@ import (
 	"fmt"
 	stdlog "log"
 	"os"
-	"path/filepath"
 	"time"
 
-	"github.com/casbin/casbin/v2"
-	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/gcc798/quick.admin/internal/config"
 	"github.com/gcc798/quick.admin/internal/database"
+	"github.com/gcc798/quick.admin/internal/database/migrations"
 	"github.com/gcc798/quick.admin/internal/domain/model"
 	"github.com/gcc798/quick.admin/internal/logger"
 	"github.com/gcc798/quick.admin/internal/messaging/websocket"
@@ -51,7 +49,6 @@ type Container interface {
 	GetRedis() *goredis.Client
 	GetJWT() *jwt.Jwt
 	GetLogger() logger.Logger
-	GetCasbin() *casbin.Enforcer
 	GetMQTT() *mqtt.Client
 	GetRabbitMQProducer() *rabbitmq.ProducerService
 	GetWeChat() *wechat.Manager
@@ -74,7 +71,6 @@ type container struct {
 	redis          *goredis.Client
 	jwt            *jwt.Jwt
 	logger         logger.Logger
-	casbin         *casbin.Enforcer
 	mqttClient     *mqtt.Client
 	rabbitMQ       *rabbitmq.Manager
 	wechatManager  *wechat.Manager
@@ -118,9 +114,6 @@ func New(cfg *config.Config, v *viper.Viper, log logger.Logger) (Container, erro
 		return nil, err
 	}
 	c.initJWT()
-	if err := c.initCasbin(); err != nil {
-		return nil, err
-	}
 
 	// 2. 初始化业务组件
 	if err := c.initMQTT(); err != nil {
@@ -203,7 +196,6 @@ func (c *container) initDB() error {
 			&model.Config{},
 			&model.StorageEnv{},
 			&model.Attachment{},
-			&model.CasbinRule{},
 			&model.MUserRole{},
 			&model.MRoleMenu{},
 			&model.ApiPermission{},
@@ -214,6 +206,14 @@ func (c *container) initDB() error {
 		}
 		c.logger.Info("database auto migration completed")
 	}
+
+	// 当前工程仍通过 AutoMigrate 创建基础表，因此在其后执行 Goose，兼容全新数据库与存量数据库。
+	c.logger.Info("starting goose database migrations...")
+	if err := migrations.Up(sqlDB); err != nil {
+		return fmt.Errorf("failed to migrate database: %w", err)
+	}
+	c.logger.Info("goose database migrations completed")
+
 	c.db = db
 	return nil
 }
@@ -231,89 +231,6 @@ func (c *container) initRedis() error {
 // initJWT 初始化JWT
 func (c *container) initJWT() {
 	c.jwt = jwt.New(c.config.JWT.Secret, int64(c.config.JWT.Expire))
-}
-
-// initCasbin 初始化 Casbin 权限管理
-func (c *container) initCasbin() error {
-	// 使用 GORM Adapter 连接数据库
-	adapter, err := gormadapter.NewAdapterByDBWithCustomTable(c.db, &model.CasbinRule{})
-	if err != nil {
-		return fmt.Errorf("failed to create casbin adapter: %w", err)
-	}
-
-	// 查找 Casbin 模型配置文件的多个可能位置
-	var modelPath string
-	modelFileName := "casbin_model.conf"
-
-	// 1. 优先尝试当前工作目录（支持 IDE 调试）
-	workDir, _ := os.Getwd()
-	modelCandidates := []string{
-		filepath.Join(workDir, modelFileName),
-		filepath.Join(workDir, "cmd", "api", modelFileName),
-		filepath.Join(c.config.AppDir, modelFileName),
-	}
-
-	for _, tryPath := range modelCandidates {
-		if tryPath == "" {
-			continue
-		}
-		if _, err := os.Stat(tryPath); err == nil {
-			modelPath = tryPath
-			break
-		}
-	}
-
-	if modelPath == "" {
-		return fmt.Errorf("casbin model file not found: tried %v", modelCandidates)
-	}
-
-	c.logger.Info("loading casbin model", zap.String("path", modelPath))
-
-	// 加载 Casbin 模型配置文件
-	enforcer, err := casbin.NewEnforcer(modelPath, adapter)
-	if err != nil {
-		return fmt.Errorf("failed to create casbin enforcer: %w", err)
-	}
-
-	// 添加通配符匹配函数（支持 * 通配符）
-	enforcer.AddFunction("keyMatch2", func(args ...interface{}) (interface{}, error) {
-		name1 := args[0].(string)
-		name2 := args[1].(string)
-
-		// 如果策略是 *，匹配所有
-		if name2 == "*" {
-			return true, nil
-		}
-
-		// 如果策略以 * 结尾，例如 "user.*"
-		if len(name2) > 0 && name2[len(name2)-1] == '*' {
-			prefix := name2[:len(name2)-1]
-			return len(name1) >= len(prefix) && name1[:len(prefix)] == prefix, nil
-		}
-
-		// 如果策略以 * 开头，例如 "*.read"
-		if len(name2) > 0 && name2[0] == '*' {
-			suffix := name2[1:]
-			return len(name1) >= len(suffix) && name1[len(name1)-len(suffix):] == suffix, nil
-		}
-
-		// 精确匹配
-		return name1 == name2, nil
-	})
-
-	// 启用日志（开发环境）
-	if c.config.Env == "development" || c.config.Env == "dev" {
-		enforcer.EnableLog(true)
-	}
-
-	// 加载策略
-	if err := enforcer.LoadPolicy(); err != nil {
-		return fmt.Errorf("failed to load casbin policy: %w", err)
-	}
-
-	c.casbin = enforcer
-	c.logger.Info("casbin enforcer initialized successfully")
-	return nil
 }
 
 // initMQTT 初始化MQTT
@@ -544,11 +461,6 @@ func (c *container) GetJWT() *jwt.Jwt {
 // GetLogger 获取业务数据。
 func (c *container) GetLogger() logger.Logger {
 	return c.logger
-}
-
-// GetCasbin 获取业务数据。
-func (c *container) GetCasbin() *casbin.Enforcer {
-	return c.casbin
 }
 
 // GetMQTT 获取业务数据。

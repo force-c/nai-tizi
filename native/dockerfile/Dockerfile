@@ -41,7 +41,6 @@ COPY --from=builder /app/bin/api /app/api
 # 复制配置文件
 COPY --from=builder /app/cmd/api/conf.prod.yaml /app/conf.yaml
 COPY --from=builder /app/cmd/api/zaplogger.prod.yaml /app/zaplogger.yaml
-COPY --from=builder /app/cmd/api/casbin_model.conf /app/casbin_model.conf
 
 # 创建日志目录
 RUN mkdir -p /app/logs && chown -R appuser:appuser /app

@@ -17,19 +17,19 @@ func registerStorageEnvRoutes(r *gin.Engine, ctx *RouterContext) {
 	storageEnvs.Use(ctx.AuthMiddleware)
 	{
 		// 存储环境创建 - 需要 storage_env.create 权限
-		storageEnvs.POST("", middleware.Permission(ctx.CasbinService, constants.ResourceStorageEnvCreate), storageEnvController.CreateStorageEnv)
+		storageEnvs.POST("", middleware.Permission(ctx.PermissionService, constants.ResourceStorageEnvCreate), storageEnvController.CreateStorageEnv)
 
 		// 存储环境查询 - 需要 storage_env.read 权限
-		storageEnvs.POST("/page", middleware.Permission(ctx.CasbinService, constants.ResourceStorageEnvRead), storageEnvController.PageStorageEnv)
-		storageEnvs.GET("/default", middleware.Permission(ctx.CasbinService, constants.ResourceStorageEnvRead), storageEnvController.GetDefaultStorageEnv)
+		storageEnvs.POST("/page", middleware.Permission(ctx.PermissionService, constants.ResourceStorageEnvRead), storageEnvController.PageStorageEnv)
+		storageEnvs.GET("/default", middleware.Permission(ctx.PermissionService, constants.ResourceStorageEnvRead), storageEnvController.GetDefaultStorageEnv)
 
 		// 设置默认环境 - 需要 storage_env.manage 权限（高级权限）
-		storageEnvs.POST("/default", middleware.Permission(ctx.CasbinService, constants.ResourceStorageEnvManage), storageEnvController.SetDefaultStorageEnv)
+		storageEnvs.POST("/default", middleware.Permission(ctx.PermissionService, constants.ResourceStorageEnvManage), storageEnvController.SetDefaultStorageEnv)
 
 		// 存储环境更新、查询和删除 - 需要 storage_env.update/read/delete 权限（带参数的路由放在最后）
-		storageEnvs.PUT("/:id", middleware.Permission(ctx.CasbinService, constants.ResourceStorageEnvUpdate), storageEnvController.UpdateStorageEnv)
-		storageEnvs.GET("/:id", middleware.Permission(ctx.CasbinService, constants.ResourceStorageEnvRead), storageEnvController.GetStorageEnv)
-		storageEnvs.POST("/:id/test", middleware.Permission(ctx.CasbinService, constants.ResourceStorageEnvRead), storageEnvController.TestStorageEnvConnection)
-		storageEnvs.DELETE("/:id", middleware.Permission(ctx.CasbinService, constants.ResourceStorageEnvDelete), storageEnvController.DeleteStorageEnv)
+		storageEnvs.PUT("/:id", middleware.Permission(ctx.PermissionService, constants.ResourceStorageEnvUpdate), storageEnvController.UpdateStorageEnv)
+		storageEnvs.GET("/:id", middleware.Permission(ctx.PermissionService, constants.ResourceStorageEnvRead), storageEnvController.GetStorageEnv)
+		storageEnvs.POST("/:id/test", middleware.Permission(ctx.PermissionService, constants.ResourceStorageEnvRead), storageEnvController.TestStorageEnvConnection)
+		storageEnvs.DELETE("/:id", middleware.Permission(ctx.PermissionService, constants.ResourceStorageEnvDelete), storageEnvController.DeleteStorageEnv)
 	}
 }

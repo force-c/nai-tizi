@@ -62,8 +62,6 @@ export const roleApi = {
     request.post<string>(`/api/v1/role/${roleId}/users`, { userIds }),
   removeUsers: (roleId: SnowflakeId, userIds: SnowflakeId[]) =>
     request.delete<string>(`/api/v1/role/${roleId}/users`, { data: { userIds } }),
-  getPermissions: (roleKey: string) =>
-    request.get<string[]>('/api/v1/role/permissions', { params: { roleKey } }),
   getMenus: (roleId: SnowflakeId) => request.get<SnowflakeId[]>(`/api/v1/role/${roleId}/menus`),
   assignMenus: (roleId: SnowflakeId, menuIds: SnowflakeId[]) =>
     request.post<string>(`/api/v1/role/${roleId}/menus`, { menuIds }),

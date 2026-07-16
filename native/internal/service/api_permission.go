@@ -7,11 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/casbin/casbin/v2"
 	"github.com/gcc798/quick.admin/internal/domain/model"
 	"github.com/gcc798/quick.admin/internal/domain/request"
-	"github.com/gcc798/quick.admin/internal/logger"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -35,13 +32,11 @@ type ApiPermissionService interface {
 }
 
 type apiPermissionService struct {
-	db       *gorm.DB
-	enforcer *casbin.Enforcer
-	logger   logger.Logger
+	db *gorm.DB
 }
 
-func NewApiPermissionService(db *gorm.DB, enforcer *casbin.Enforcer, logger logger.Logger) ApiPermissionService {
-	return &apiPermissionService{db: db, enforcer: enforcer, logger: logger}
+func NewApiPermissionService(db *gorm.DB) ApiPermissionService {
+	return &apiPermissionService{db: db}
 }
 
 func (s *apiPermissionService) Tree(ctx context.Context) ([]*ApiPermissionTree, error) {
@@ -96,10 +91,6 @@ func (s *apiPermissionService) Update(ctx context.Context, id int64, req *reques
 		}
 		return fmt.Errorf("查询 API 权限失败: %w", err)
 	}
-	roleIds, userIds, err := s.findAffectedSubjects(ctx, id)
-	if err != nil {
-		return err
-	}
 	existing.ParentId = req.ParentId
 	existing.Module = req.Module
 	existing.Code = req.Code
@@ -118,9 +109,6 @@ func (s *apiPermissionService) Update(ctx context.Context, id int64, req *reques
 	if err := s.db.WithContext(ctx).Save(&existing).Error; err != nil {
 		return fmt.Errorf("更新 API 权限失败: %w", err)
 	}
-	if err := s.syncAffectedPolicies(ctx, roleIds, userIds); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -131,10 +119,6 @@ func (s *apiPermissionService) Delete(ctx context.Context, id int64) error {
 	}
 	if childCount > 0 {
 		return fmt.Errorf("存在子权限，无法删除")
-	}
-	roleIds, userIds, err := s.findAffectedSubjects(ctx, id)
-	if err != nil {
-		return err
 	}
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if _, err := gorm.G[model.MRoleApiPermission](tx).Where("permission_id = ?", id).Delete(ctx); err != nil {
@@ -148,9 +132,6 @@ func (s *apiPermissionService) Delete(ctx context.Context, id int64) error {
 		}
 		return nil
 	}); err != nil {
-		return err
-	}
-	if err := s.syncAffectedPolicies(ctx, roleIds, userIds); err != nil {
 		return err
 	}
 	return nil
@@ -176,7 +157,7 @@ func (s *apiPermissionService) AssignRolePermissions(ctx context.Context, roleId
 		}
 		return fmt.Errorf("查询角色失败: %w", err)
 	}
-	permissions, normalizedIds, err := s.resolveAssignablePermissions(ctx, permissionIds)
+	_, normalizedIds, err := s.resolveAssignablePermissions(ctx, permissionIds)
 	if err != nil {
 		return err
 	}
@@ -196,10 +177,6 @@ func (s *apiPermissionService) AssignRolePermissions(ctx context.Context, roleId
 		return nil
 	}); err != nil {
 		return err
-	}
-	if err := s.replaceSubjectPolicies(fmt.Sprintf("role::%s", role.RoleKey), permissions); err != nil {
-		s.logger.Error("同步角色 API 权限到 Casbin 失败", zap.Int64("roleId", roleId), zap.Error(err))
-		return fmt.Errorf("同步 Casbin 失败: %w", err)
 	}
 	return nil
 }
@@ -223,7 +200,7 @@ func (s *apiPermissionService) AssignUserPermissions(ctx context.Context, target
 		}
 		return fmt.Errorf("查询用户失败: %w", err)
 	}
-	permissions, normalizedIds, err := s.resolveAssignablePermissions(ctx, permissionIds)
+	_, normalizedIds, err := s.resolveAssignablePermissions(ctx, permissionIds)
 	if err != nil {
 		return err
 	}
@@ -243,10 +220,6 @@ func (s *apiPermissionService) AssignUserPermissions(ctx context.Context, target
 		return nil
 	}); err != nil {
 		return err
-	}
-	if err := s.replaceSubjectPolicies(fmt.Sprintf("user::%d", targetUserId), permissions); err != nil {
-		s.logger.Error("同步用户 API 权限到 Casbin 失败", zap.Int64("userId", targetUserId), zap.Error(err))
-		return fmt.Errorf("同步 Casbin 失败: %w", err)
 	}
 	return nil
 }
@@ -324,113 +297,6 @@ func (s *apiPermissionService) resolveAssignablePermissions(ctx context.Context,
 	}
 	sort.Slice(normalizedIds, func(i, j int) bool { return normalizedIds[i] < normalizedIds[j] })
 	return normalized, normalizedIds, nil
-}
-
-func (s *apiPermissionService) replaceSubjectPolicies(subject string, permissions []model.ApiPermission) error {
-	if _, err := s.enforcer.RemoveFilteredPolicy(0, subject); err != nil {
-		return err
-	}
-	for _, permission := range permissions {
-		if permission.Code == "" {
-			continue
-		}
-		action := normalizeAction(permission.Code, permission.Action)
-		if _, err := s.enforcer.AddPolicy(subject, permission.Code, action); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *apiPermissionService) findAffectedSubjects(ctx context.Context, permissionId int64) ([]int64, []int64, error) {
-	var roleRows []model.MRoleApiPermission
-	if err := s.db.WithContext(ctx).Where("permission_id = ?", permissionId).Find(&roleRows).Error; err != nil {
-		return nil, nil, fmt.Errorf("查询受影响角色失败: %w", err)
-	}
-	var userRows []model.MUserApiPermission
-	if err := s.db.WithContext(ctx).Where("permission_id = ?", permissionId).Find(&userRows).Error; err != nil {
-		return nil, nil, fmt.Errorf("查询受影响用户失败: %w", err)
-	}
-	roleIds := make([]int64, 0, len(roleRows))
-	for _, row := range roleRows {
-		roleIds = append(roleIds, row.RoleId)
-	}
-	userIds := make([]int64, 0, len(userRows))
-	for _, row := range userRows {
-		userIds = append(userIds, row.UserId)
-	}
-	return uniqueInt64(roleIds), uniqueInt64(userIds), nil
-}
-
-func (s *apiPermissionService) syncAffectedPolicies(ctx context.Context, roleIds []int64, userIds []int64) error {
-	for _, roleId := range uniqueInt64(roleIds) {
-		if err := s.syncRolePolicy(ctx, roleId); err != nil {
-			return err
-		}
-	}
-	for _, userId := range uniqueInt64(userIds) {
-		if err := s.syncUserPolicy(ctx, userId); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *apiPermissionService) syncRolePolicy(ctx context.Context, roleId int64) error {
-	var role model.Role
-	if err := s.db.WithContext(ctx).Where("id = ?", roleId).First(&role).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil
-		}
-		return fmt.Errorf("查询角色失败: %w", err)
-	}
-	permissions, err := s.listRolePolicyPermissions(ctx, roleId)
-	if err != nil {
-		return err
-	}
-	if err := s.replaceSubjectPolicies(fmt.Sprintf("role::%s", role.RoleKey), normalizeCoveredPermissions(permissions)); err != nil {
-		return fmt.Errorf("同步角色 Casbin 权限失败: %w", err)
-	}
-	return nil
-}
-
-func (s *apiPermissionService) syncUserPolicy(ctx context.Context, userId int64) error {
-	permissions, err := s.listUserPolicyPermissions(ctx, userId)
-	if err != nil {
-		return err
-	}
-	if err := s.replaceSubjectPolicies(fmt.Sprintf("user::%d", userId), normalizeCoveredPermissions(permissions)); err != nil {
-		return fmt.Errorf("同步用户 Casbin 权限失败: %w", err)
-	}
-	return nil
-}
-
-func (s *apiPermissionService) listRolePolicyPermissions(ctx context.Context, roleId int64) ([]model.ApiPermission, error) {
-	var permissions []model.ApiPermission
-	err := s.db.WithContext(ctx).
-		Model(&model.ApiPermission{}).
-		Joins("INNER JOIN m_role_api_permission rp ON s_api_permission.id = rp.permission_id").
-		Where("rp.role_id = ? AND s_api_permission.status = 0", roleId).
-		Order("s_api_permission.sort ASC, s_api_permission.created_time ASC").
-		Find(&permissions).Error
-	if err != nil {
-		return nil, fmt.Errorf("查询角色 API 权限失败: %w", err)
-	}
-	return permissions, nil
-}
-
-func (s *apiPermissionService) listUserPolicyPermissions(ctx context.Context, userId int64) ([]model.ApiPermission, error) {
-	var permissions []model.ApiPermission
-	err := s.db.WithContext(ctx).
-		Model(&model.ApiPermission{}).
-		Joins("INNER JOIN m_user_api_permission up ON s_api_permission.id = up.permission_id").
-		Where("up.user_id = ? AND s_api_permission.status = 0", userId).
-		Order("s_api_permission.sort ASC, s_api_permission.created_time ASC").
-		Find(&permissions).Error
-	if err != nil {
-		return nil, fmt.Errorf("查询用户 API 权限失败: %w", err)
-	}
-	return permissions, nil
 }
 
 func uniqueInt64(values []int64) []int64 {

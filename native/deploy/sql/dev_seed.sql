@@ -134,15 +134,6 @@ DELETE FROM m_user_role WHERE user_id = 1;
 INSERT INTO m_user_role (user_id, role_id, create_by, update_by, created_time, updated_time)
 VALUES (1, 1880159541355577349, 1, 1, NOW(), NOW());
 
--- Casbin policy for the default admin. Keep the explicit super_admin wildcard,
--- and bind the real admin user id used by s_user.
-DELETE FROM casbin_rule WHERE ptype = 'g' AND v0 LIKE 'user::%';
-DELETE FROM casbin_rule WHERE ptype = 'p' AND v0 = 'role::super_admin';
-INSERT INTO casbin_rule (ptype, v0, v1, v2)
-VALUES
-  ('p', 'role::super_admin', '*', '*'),
-  ('g', 'user::1', 'role::super_admin', '');
-
 SELECT setval(pg_get_serial_sequence('s_user', 'id'), GREATEST((SELECT COALESCE(MAX(id), 1) FROM s_user), 1), TRUE);
 SELECT setval(pg_get_serial_sequence('s_role', 'id'), GREATEST((SELECT COALESCE(MAX(id), 1) FROM s_role), 1), TRUE);
 

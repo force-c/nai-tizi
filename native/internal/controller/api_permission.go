@@ -29,7 +29,7 @@ type apiPermissionController struct {
 
 func NewApiPermissionController(c container.Container) ApiPermissionController {
 	return &apiPermissionController{
-		service: service.NewApiPermissionService(c.GetDB(), c.GetCasbin(), c.GetLogger()),
+		service: service.NewApiPermissionService(c.GetDB()),
 	}
 }
 
