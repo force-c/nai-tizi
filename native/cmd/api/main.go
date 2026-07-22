@@ -109,14 +109,18 @@ func main() {
 	e.Use(middleware.Recovery(logger.Get()))
 	e.Use(echoMiddleware.RequestLogger())
 
-	// 添加 CORS 中间件（必须在路由注册之前）
-	e.Use(middleware.CORS())
+	// 本地前后端分离开发时启用；生产环境通过同源 Nginx 代理，不启用应用层 CORS。
+	if cfg.CORS.Enabled {
+		e.Use(middleware.CORS())
+	}
 
 	// 添加字符串ID转换中间件（处理前端传递的字符串ID）
 	e.Use(middleware.StringIDConverter())
 
 	// 添加操作日志中间件（全局记录所有接口访问）
-	e.Use(middleware.OperationLog(c.GetDB(), c.GetLogger()))
+	operLogWriter := middleware.NewOperLogWriter(c.GetDB(), c.GetLogger())
+	defer operLogWriter.Stop()
+	e.Use(middleware.OperationLog(operLogWriter))
 
 	// 注册路由
 	router.Setup(httpx.NewRouter(e), c, b)

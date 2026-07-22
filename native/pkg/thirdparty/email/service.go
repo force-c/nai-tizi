@@ -1,7 +1,6 @@
 package email
 
 import (
-	"crypto/tls"
 	"fmt"
 	"time"
 
@@ -54,8 +53,6 @@ func (m *Manager) Send(to string, subject string, body string) error {
 	msg.SetBody("text/html", body)
 
 	dialer := gomail.NewDialer(m.config.Host, m.config.Port, m.config.Username, m.config.Password)
-	dialer.TLSConfig = &tls.Config{InsecureSkipVerify: true}
-
 	if err := dialer.DialAndSend(msg); err != nil {
 		m.logger.Error("failed to send email", zap.Error(err))
 		return fmt.Errorf("发送邮件失败: %w", err)

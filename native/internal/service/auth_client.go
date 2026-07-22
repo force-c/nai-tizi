@@ -22,8 +22,10 @@ const (
 
 // ClientService 定义业务数据结构。
 type ClientService interface {
-	// AuthenticateClientID 认证客户端（通过 clientId）
+	// AuthenticateClientID validates an active client and a login grant type.
 	AuthenticateClientID(ctx context.Context, clientID, grantType string) (*model.AuthClient, error)
+	// GetActiveClient returns an active client for non-login operations such as token refresh.
+	GetActiveClient(ctx context.Context, clientID string) (*model.AuthClient, error)
 }
 
 type clientService struct {
@@ -39,11 +41,22 @@ func NewClientService(db *gorm.DB, redis *redis.Client, logger logging.Logger) C
 
 // AuthenticateClientID 根据 clientId 认证客户端。
 func (s *clientService) AuthenticateClientID(ctx context.Context, clientID, grantType string) (*model.AuthClient, error) {
-	if clientID == "" {
-		return nil, fmt.Errorf("clientId不能为空")
-	}
 	if grantType == "" {
 		return nil, fmt.Errorf("grantType不能为空")
+	}
+	client, err := s.GetActiveClient(ctx, clientID)
+	if err != nil {
+		return nil, err
+	}
+	if !client.IsGrantTypeSupported(grantType) {
+		return nil, fmt.Errorf("客户端不支持该授权类型")
+	}
+	return client, nil
+}
+
+func (s *clientService) GetActiveClient(ctx context.Context, clientID string) (*model.AuthClient, error) {
+	if clientID == "" {
+		return nil, fmt.Errorf("clientId不能为空")
 	}
 
 	cacheKey := ClientCacheKeyPrefix + "id:" + clientID
@@ -72,9 +85,6 @@ func (s *clientService) AuthenticateClientID(ctx context.Context, clientID, gran
 
 	if !client.IsActive() {
 		return nil, fmt.Errorf("客户端已停用")
-	}
-	if !client.IsGrantTypeSupported(grantType) {
-		return nil, fmt.Errorf("客户端不支持该授权类型")
 	}
 	return client, nil
 }

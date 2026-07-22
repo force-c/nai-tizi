@@ -6,7 +6,10 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/gcc798/quick.admin/internal/domain/model"
@@ -17,27 +20,19 @@ import (
 )
 
 const (
-	// TokenActiveKeyPrefix Token 活动状态 Redis Key 前缀（已废弃，使用 AccessToken 短期过期替代）
-	TokenActiveKeyPrefix = "token:active:"
-
-	// RefreshTokenKeyPrefix RefreshToken Redis Key 前缀
-	// refresh_token:{userId}:{clientId} -> refreshToken
-	RefreshTokenKeyPrefix = "refresh_token:"
+	accessTokenKeyPrefix  = "auth:access:"
+	refreshTokenKeyPrefix = "auth:refresh:"
+	sessionKeyPrefix      = "auth:session:"
+	userSessionsKeyPrefix = "auth:user-sessions:"
 )
 
-// TokenManager Token 管理器接口
+// TokenManager owns the complete access-token, refresh-token and login-session lifecycle.
 type TokenManager interface {
-	// GenerateTokenPair 生成 AccessToken 和 RefreshToken
 	GenerateTokenPair(ctx context.Context, user *model.User, client *model.AuthClient) (accessToken, refreshToken string, accessExpiresIn, refreshExpiresIn int64, err error)
-
-	// ValidateAccessToken 验证 AccessToken
 	ValidateAccessToken(ctx context.Context, token string) (*jwt.Claims, error)
-
-	// RefreshAccessToken 使用 RefreshToken 刷新 AccessToken
 	RefreshAccessToken(ctx context.Context, refreshToken string, client *model.AuthClient) (newAccessToken, newRefreshToken string, accessExpiresIn, refreshExpiresIn int64, err error)
-
-	// InvalidateToken 使 Token 失效（登出时调用）
-	InvalidateToken(ctx context.Context, userId int64, clientId string) error
+	RevokeAccessToken(ctx context.Context, accessToken string) error
+	RevokeUserSessions(ctx context.Context, userID int64, clientID string) error
 }
 
 type tokenManager struct {
@@ -46,227 +41,208 @@ type tokenManager struct {
 	logger logging.Logger
 }
 
-// NewTokenManager 创建 TokenManager 实例
-func NewTokenManager(jwtService *jwt.Jwt, redis *redis.Client, logger logging.Logger) TokenManager {
-	return &tokenManager{
-		jwt:    jwtService,
-		redis:  redis,
-		logger: logger,
-	}
+type tokenSession struct {
+	ID          string `json:"id"`
+	UserID      int64  `json:"userId"`
+	UserName    string `json:"userName"`
+	ClientID    string `json:"clientId"`
+	DeviceType  string `json:"deviceType"`
+	AccessHash  string `json:"accessHash"`
+	RefreshHash string `json:"refreshHash"`
 }
 
-// GenerateTokenPair 生成 AccessToken 和 RefreshToken
-// AccessToken: 使用 JWT，过期时间为 client.ActiveTimeout（短期）
-// RefreshToken: 随机字符串，存储在 Redis，过期时间为 client.Timeout（长期）
+func NewTokenManager(jwtService *jwt.Jwt, redisClient *redis.Client, logger logging.Logger) TokenManager {
+	return &tokenManager{jwt: jwtService, redis: redisClient, logger: logger}
+}
+
 func (m *tokenManager) GenerateTokenPair(ctx context.Context, user *model.User, client *model.AuthClient) (string, string, int64, int64, error) {
-	// 1. 生成 AccessToken（JWT）
-	accessToken, accessExpiresIn, err := m.jwt.GenerateToken(
+	if user == nil || client == nil {
+		return "", "", 0, 0, errors.New("user and client are required")
+	}
+
+	accessToken, accessTTL, err := m.jwt.GenerateToken(
 		user.ID,
 		user.UserName,
 		client.ClientId,
 		client.DeviceType,
-		client.ActiveTimeout, // 使用 ActiveTimeout 作为 AccessToken 过期时间
+		client.ActiveTimeout,
 	)
 	if err != nil {
-		m.logger.Error("生成 AccessToken 失败", zap.Error(err))
-		return "", "", 0, 0, fmt.Errorf("生成 AccessToken 失败: %w", err)
+		return "", "", 0, 0, fmt.Errorf("generate access token: %w", err)
+	}
+	claims, err := m.jwt.ValidateToken(accessToken)
+	if err != nil {
+		return "", "", 0, 0, fmt.Errorf("read generated access token: %w", err)
 	}
 
-	// 2. 生成 RefreshToken（随机字符串）
 	refreshToken, err := generateRandomToken(32)
 	if err != nil {
-		m.logger.Error("生成 RefreshToken 失败", zap.Error(err))
-		return "", "", 0, 0, fmt.Errorf("生成 RefreshToken 失败: %w", err)
+		return "", "", 0, 0, fmt.Errorf("generate refresh token: %w", err)
 	}
 
-	// 3. 将 RefreshToken 存储到 Redis
-	refreshKey := m.getRefreshTokenKey(user.ID, client.ClientId)
-	refreshTTL := time.Duration(client.Timeout) * time.Second
-
-	// 存储 RefreshToken 的元数据（包含用户信息）
-	refreshData := map[string]interface{}{
-		"token":      refreshToken,
-		"userId":     user.ID,
-		"userName":   user.UserName,
-		"clientId":   client.ClientId,
-		"deviceType": client.DeviceType,
-		"createdAt":  time.Now().Unix(),
+	refreshTTL := client.Timeout
+	if refreshTTL <= 0 {
+		return "", "", 0, 0, errors.New("client refresh token timeout must be positive")
+	}
+	session := tokenSession{
+		ID:          claims.ID,
+		UserID:      user.ID,
+		UserName:    user.UserName,
+		ClientID:    client.ClientId,
+		DeviceType:  client.DeviceType,
+		AccessHash:  tokenHash(accessToken),
+		RefreshHash: tokenHash(refreshToken),
+	}
+	if err := m.storeSession(ctx, session, time.Duration(accessTTL)*time.Second, time.Duration(refreshTTL)*time.Second); err != nil {
+		return "", "", 0, 0, err
 	}
 
-	err = m.redis.HSet(ctx, refreshKey, refreshData).Err()
-	if err != nil {
-		m.logger.Error("存储 RefreshToken 失败", zap.Error(err))
-		return "", "", 0, 0, fmt.Errorf("存储 RefreshToken 失败: %w", err)
-	}
-
-	// 设置过期时间
-	err = m.redis.Expire(ctx, refreshKey, refreshTTL).Err()
-	if err != nil {
-		m.logger.Warn("设置 RefreshToken 过期时间失败", zap.Error(err))
-	}
-
-	m.logger.Info("生成 Token 对成功",
-		zap.Int64("userId", user.ID),
-		zap.String("clientId", client.ClientId),
-		zap.Int64("accessExpiresIn", accessExpiresIn),
-		zap.Int64("refreshExpiresIn", client.Timeout))
-
-	return accessToken, refreshToken, accessExpiresIn, client.Timeout, nil
+	return accessToken, refreshToken, accessTTL, refreshTTL, nil
 }
 
-// ValidateAccessToken 验证 AccessToken
 func (m *tokenManager) ValidateAccessToken(ctx context.Context, token string) (*jwt.Claims, error) {
 	claims, err := m.jwt.ValidateToken(token)
 	if err != nil {
-		return nil, fmt.Errorf("AccessToken 无效或已过期")
+		return nil, errors.New("AccessToken 无效或已过期")
+	}
+	active, err := m.redis.Exists(ctx, accessTokenKey(tokenHash(token))).Result()
+	if err != nil {
+		m.logger.Error("validate access token session failed", zap.Error(err))
+		return nil, errors.New("认证服务暂时不可用")
+	}
+	if active != 1 {
+		return nil, errors.New("AccessToken 已失效")
 	}
 	return claims, nil
 }
 
-// RefreshAccessToken 使用 RefreshToken 刷新 AccessToken
-// 1. 验证 RefreshToken 是否存在且有效
-// 2. 生成新的 AccessToken
-// 3. 轮换 RefreshToken（生成新的，使旧的失效）
 func (m *tokenManager) RefreshAccessToken(ctx context.Context, refreshToken string, client *model.AuthClient) (string, string, int64, int64, error) {
-	// 1. 查找 RefreshToken（遍历所有用户的 RefreshToken）
-	// 注意：这里为了性能，我们需要优化查找方式
-	// 方案：使用 refreshToken 的哈希作为额外的索引
-	tokenHash := generateTokenHash(refreshToken)
-	indexKey := "refresh_token_index:" + tokenHash
+	if refreshToken == "" || client == nil {
+		return "", "", 0, 0, errors.New("RefreshToken 和客户端不能为空")
+	}
 
-	// 先从索引中获取用户信息
-	userKey, err := m.redis.Get(ctx, indexKey).Result()
+	// GETDEL makes a refresh token single-use, including under concurrent refresh requests.
+	encoded, err := m.redis.GetDel(ctx, refreshTokenKey(tokenHash(refreshToken))).Result()
 	if err != nil {
-		m.logger.Warn("RefreshToken 索引不存在", zap.Error(err))
-		return "", "", 0, 0, fmt.Errorf("RefreshToken 无效或已过期")
+		if errors.Is(err, redis.Nil) {
+			return "", "", 0, 0, errors.New("RefreshToken 无效或已过期")
+		}
+		return "", "", 0, 0, fmt.Errorf("consume refresh token: %w", err)
 	}
 
-	// 2. 从 Redis 获取 RefreshToken 数据
-	refreshData, err := m.redis.HGetAll(ctx, userKey).Result()
-	if err != nil || len(refreshData) == 0 {
-		m.logger.Warn("RefreshToken 数据不存在", zap.Error(err))
-		return "", "", 0, 0, fmt.Errorf("RefreshToken 无效或已过期")
+	var oldSession tokenSession
+	if err := json.Unmarshal([]byte(encoded), &oldSession); err != nil {
+		return "", "", 0, 0, errors.New("RefreshToken 会话数据无效")
+	}
+	if oldSession.ClientID != client.ClientId {
+		return "", "", 0, 0, errors.New("客户端不匹配")
 	}
 
-	// 3. 验证 RefreshToken 是否匹配
-	storedToken := refreshData["token"]
-	if storedToken != refreshToken {
-		m.logger.Warn("RefreshToken 不匹配")
-		return "", "", 0, 0, fmt.Errorf("RefreshToken 无效")
+	if err := m.deleteSession(ctx, oldSession, false); err != nil {
+		m.logger.Warn("delete rotated token session failed", zap.Error(err))
 	}
-
-	// 4. 验证 clientId 是否匹配
-	if refreshData["clientId"] != client.ClientId {
-		m.logger.Warn("ClientId 不匹配",
-			zap.String("expected", refreshData["clientId"]),
-			zap.String("actual", client.ClientId))
-		return "", "", 0, 0, fmt.Errorf("客户端不匹配")
-	}
-
-	// 5. 提取用户信息
-	userId := parseInt64(refreshData["userId"])
-	userName := refreshData["userName"]
-	deviceType := refreshData["deviceType"]
-
-	// 6. 生成新的 AccessToken
-	newAccessToken, accessExpiresIn, err := m.jwt.GenerateToken(
-		userId,
-		userName,
-		client.ClientId,
-		deviceType,
-		client.ActiveTimeout,
-	)
-	if err != nil {
-		m.logger.Error("生成新 AccessToken 失败", zap.Error(err))
-		return "", "", 0, 0, fmt.Errorf("生成新 AccessToken 失败: %w", err)
-	}
-
-	// 7. 轮换 RefreshToken（生成新的）
-	newRefreshToken, err := generateRandomToken(32)
-	if err != nil {
-		m.logger.Error("生成新 RefreshToken 失败", zap.Error(err))
-		return "", "", 0, 0, fmt.Errorf("生成新 RefreshToken 失败: %w", err)
-	}
-
-	// 8. 更新 Redis 中的 RefreshToken
-	refreshTTL := time.Duration(client.Timeout) * time.Second
-	newRefreshData := map[string]interface{}{
-		"token":      newRefreshToken,
-		"userId":     userId,
-		"userName":   userName,
-		"clientId":   client.ClientId,
-		"deviceType": deviceType,
-		"createdAt":  time.Now().Unix(),
-	}
-
-	err = m.redis.HSet(ctx, userKey, newRefreshData).Err()
-	if err != nil {
-		m.logger.Error("更新 RefreshToken 失败", zap.Error(err))
-		return "", "", 0, 0, fmt.Errorf("更新 RefreshToken 失败: %w", err)
-	}
-
-	// 重置过期时间
-	err = m.redis.Expire(ctx, userKey, refreshTTL).Err()
-	if err != nil {
-		m.logger.Warn("设置 RefreshToken 过期时间失败", zap.Error(err))
-	}
-
-	// 9. 更新索引（删除旧的，创建新的）
-	_ = m.redis.Del(ctx, indexKey).Err()
-	newTokenHash := generateTokenHash(newRefreshToken)
-	newIndexKey := "refresh_token_index:" + newTokenHash
-	_ = m.redis.Set(ctx, newIndexKey, userKey, refreshTTL).Err()
-
-	m.logger.Info("刷新 Token 成功",
-		zap.Int64("userId", userId),
-		zap.String("clientId", client.ClientId))
-
-	return newAccessToken, newRefreshToken, accessExpiresIn, client.Timeout, nil
+	user := &model.User{ID: oldSession.UserID, UserName: oldSession.UserName}
+	return m.GenerateTokenPair(ctx, user, client)
 }
 
-// InvalidateToken 使 Token 失效（登出时调用）
-// 删除 Redis 中的 RefreshToken
-func (m *tokenManager) InvalidateToken(ctx context.Context, userId int64, clientId string) error {
-	refreshKey := m.getRefreshTokenKey(userId, clientId)
+func (m *tokenManager) RevokeAccessToken(ctx context.Context, accessToken string) error {
+	if accessToken == "" {
+		return nil
+	}
+	sessionID, err := m.redis.Get(ctx, accessTokenKey(tokenHash(accessToken))).Result()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return nil
+		}
+		return fmt.Errorf("read access token session: %w", err)
+	}
+	session, err := m.readSession(ctx, sessionID)
+	if err != nil {
+		_ = m.redis.Del(ctx, accessTokenKey(tokenHash(accessToken))).Err()
+		return err
+	}
+	return m.deleteSession(ctx, session, true)
+}
 
-	// 获取 RefreshToken 以删除索引
-	refreshData, err := m.redis.HGetAll(ctx, refreshKey).Result()
-	if err == nil && len(refreshData) > 0 {
-		token := refreshData["token"]
-		if token != "" {
-			tokenHash := generateTokenHash(token)
-			indexKey := "refresh_token_index:" + tokenHash
-			_ = m.redis.Del(ctx, indexKey).Err()
+func (m *tokenManager) RevokeUserSessions(ctx context.Context, userID int64, clientID string) error {
+	setKey := userSessionsKey(userID, clientID)
+	sessionIDs, err := m.redis.SMembers(ctx, setKey).Result()
+	if err != nil {
+		return fmt.Errorf("list user sessions: %w", err)
+	}
+	for _, sessionID := range sessionIDs {
+		session, readErr := m.readSession(ctx, sessionID)
+		if readErr != nil {
+			m.logger.Warn("read user session during revocation failed", zap.String("sessionId", sessionID), zap.Error(readErr))
+			continue
+		}
+		if deleteErr := m.deleteSession(ctx, session, true); deleteErr != nil {
+			return deleteErr
 		}
 	}
-
-	// 删除 RefreshToken
-	return m.redis.Del(ctx, refreshKey).Err()
+	return m.redis.Del(ctx, setKey).Err()
 }
 
-// getRefreshTokenKey 获取 RefreshToken Redis Key
-func (m *tokenManager) getRefreshTokenKey(userId int64, clientId string) string {
-	return fmt.Sprintf("%s%d:%s", RefreshTokenKeyPrefix, userId, clientId)
+func (m *tokenManager) storeSession(ctx context.Context, session tokenSession, accessTTL, refreshTTL time.Duration) error {
+	encoded, err := json.Marshal(session)
+	if err != nil {
+		return fmt.Errorf("encode token session: %w", err)
+	}
+	setKey := userSessionsKey(session.UserID, session.ClientID)
+	pipe := m.redis.TxPipeline()
+	pipe.Set(ctx, accessTokenKey(session.AccessHash), session.ID, accessTTL)
+	pipe.Set(ctx, refreshTokenKey(session.RefreshHash), encoded, refreshTTL)
+	pipe.Set(ctx, sessionKey(session.ID), encoded, refreshTTL)
+	pipe.SAdd(ctx, setKey, session.ID)
+	pipe.Expire(ctx, setKey, refreshTTL)
+	if _, err := pipe.Exec(ctx); err != nil {
+		return fmt.Errorf("store token session: %w", err)
+	}
+	return nil
 }
 
-// generateRandomToken 生成随机 Token
+func (m *tokenManager) readSession(ctx context.Context, sessionID string) (tokenSession, error) {
+	encoded, err := m.redis.Get(ctx, sessionKey(sessionID)).Result()
+	if err != nil {
+		return tokenSession{}, fmt.Errorf("read token session: %w", err)
+	}
+	var session tokenSession
+	if err := json.Unmarshal([]byte(encoded), &session); err != nil {
+		return tokenSession{}, fmt.Errorf("decode token session: %w", err)
+	}
+	return session, nil
+}
+
+func (m *tokenManager) deleteSession(ctx context.Context, session tokenSession, deleteRefresh bool) error {
+	keys := []string{accessTokenKey(session.AccessHash), sessionKey(session.ID)}
+	if deleteRefresh {
+		keys = append(keys, refreshTokenKey(session.RefreshHash))
+	}
+	pipe := m.redis.TxPipeline()
+	pipe.Del(ctx, keys...)
+	pipe.SRem(ctx, userSessionsKey(session.UserID, session.ClientID), session.ID)
+	if _, err := pipe.Exec(ctx); err != nil {
+		return fmt.Errorf("delete token session: %w", err)
+	}
+	return nil
+}
+
 func generateRandomToken(length int) (string, error) {
-	bytes := make([]byte, length)
-	if _, err := rand.Read(bytes); err != nil {
+	value := make([]byte, length)
+	if _, err := rand.Read(value); err != nil {
 		return "", err
 	}
-	return base64.URLEncoding.EncodeToString(bytes), nil
+	return base64.RawURLEncoding.EncodeToString(value), nil
 }
 
-// generateTokenHash 生成 Token 的 SHA256 哈希值
-func generateTokenHash(token string) string {
-	h := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(h[:])
+func tokenHash(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }
 
-// parseInt64 将字符串转换为 int64
-func parseInt64(s string) int64 {
-	var result int64
-	fmt.Sscanf(s, "%d", &result)
-	return result
+func accessTokenKey(hash string) string  { return accessTokenKeyPrefix + hash }
+func refreshTokenKey(hash string) string { return refreshTokenKeyPrefix + hash }
+func sessionKey(sessionID string) string { return sessionKeyPrefix + sessionID }
+func userSessionsKey(userID int64, clientID string) string {
+	return userSessionsKeyPrefix + strconv.FormatInt(userID, 10) + ":" + clientID
 }

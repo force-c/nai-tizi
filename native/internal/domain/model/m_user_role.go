@@ -8,8 +8,8 @@ import (
 // MUserRole 用户角色关联表（映射表）
 type MUserRole struct {
 	Id          int64           `gorm:"column:id;type:bigint;primaryKey;autoIncrement:false" autogen:"int64" json:"id"` // 使用分布式ID
-	UserId      int64           `gorm:"column:user_id;type:bigint;not null;index:idx_user_role" json:"userId"`          // 用户ID
-	RoleId      int64           `gorm:"column:role_id;type:bigint;not null;index:idx_user_role" json:"roleId"`          // 角色ID
+	UserId      int64           `gorm:"column:user_id;type:bigint;not null;uniqueIndex:idx_user_role" json:"userId"`    // 用户ID
+	RoleId      int64           `gorm:"column:role_id;type:bigint;not null;uniqueIndex:idx_user_role" json:"roleId"`    // 角色ID
 	CreateBy    int64           `gorm:"column:create_by;type:bigint" json:"createBy"`                                   // 创建人
 	UpdateBy    int64           `gorm:"column:update_by;type:bigint" json:"updateBy"`                                   // 更新人
 	CreatedTime utils.LocalTime `gorm:"column:created_time;type:timestamptz;autoCreateTime" json:"createdTime"`

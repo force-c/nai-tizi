@@ -121,11 +121,10 @@ func (h *authController) Login(c *echo.Context) {
 // LoginRequest 登录请求
 // @Description 统一登录请求参数
 type LoginRequest struct {
-    ClientKey    string `json:"clientKey" binding:"required" example:"web-admin"` // 客户端Key
-    ClientSecret string `json:"clientSecret" binding:"required" example:"web-secret-2024"` // 客户端密钥
-    GrantType    string `json:"grantType" binding:"required" example:"password" enums:"password,email,xcx"` // 授权类型
+    ClientID     string `json:"clientId" binding:"required" example:"web-admin"` // 客户端ID
+    GrantType    string `json:"grantType" binding:"required" example:"password" enums:"password,email,sms,wechat"` // 授权类型
     Username     string `json:"username" example:"admin"` // 用户名
-    Password     string `json:"password" example:"admin123"` // 密码
+    Password     string `json:"password" example:"your-password"` // 密码
 }
 ```
 
@@ -151,7 +150,7 @@ type LoginRequest struct {
 | 标签 | 说明 | 示例 |
 |------|------|------|
 | `example` | 示例值 | `example:"admin"` |
-| `enums` | 枚举值 | `enums:"password,email,xcx"` |
+| `enums` | 枚举值 | `enums:"password,email,sms,wechat"` |
 | `minimum` | 最小值 | `minimum:"1"` |
 | `maximum` | 最大值 | `maximum:"100"` |
 | `minLength` | 最小长度 | `minLength:"6"` |

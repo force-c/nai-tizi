@@ -13,7 +13,5 @@ func registerAuthRoutes(r *httpx.Router, ctx *RouterContext) {
 	// 公开路由（无需认证）
 	r.POST("/login", authController.Login)               // 统一登录接口
 	r.POST("/logout", authController.Logout)             // 登出
-	r.POST("/auth/login", authController.Login)          // 统一登录接口
-	r.POST("/auth/logout", authController.Logout)        // 登出
 	r.POST("/auth/refresh", authController.RefreshToken) // 刷新Token
 }

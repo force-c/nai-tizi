@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 // Jwt 定义业务数据结构。
@@ -35,7 +36,19 @@ func (s *Jwt) GenerateToken(userId int64, userName, clientId, deviceType string,
 	if len(expireSeconds) > 0 && expireSeconds[0] > 0 {
 		expire = time.Duration(expireSeconds[0]) * time.Second
 	}
-	claims := Claims{UserId: userId, UserName: userName, ClientId: clientId, DeviceType: deviceType, RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(expire)), IssuedAt: jwt.NewNumericDate(time.Now()), Issuer: "NTZ-go"}}
+	now := time.Now()
+	claims := Claims{
+		UserId:     userId,
+		UserName:   userName,
+		ClientId:   clientId,
+		DeviceType: deviceType,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        uuid.NewString(),
+			ExpiresAt: jwt.NewNumericDate(now.Add(expire)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			Issuer:    "quick-admin",
+		},
+	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenStr, err := token.SignedString(s.secret)
 	if err != nil {
@@ -45,7 +58,13 @@ func (s *Jwt) GenerateToken(userId int64, userName, clientId, deviceType string,
 }
 
 func (s *Jwt) ValidateToken(tokenString string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) { return s.secret, nil })
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		&Claims{},
+		func(token *jwt.Token) (interface{}, error) { return s.secret, nil },
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		jwt.WithIssuer("quick-admin"),
+	)
 	if err != nil {
 		return nil, err
 	}

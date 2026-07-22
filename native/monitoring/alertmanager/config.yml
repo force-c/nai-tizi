@@ -21,12 +21,6 @@ receivers:
       - url: 'http://webhook-receiver:8080/alerts'
 
   - name: 'critical'
-    email_configs:
-      - to: 'ops@example.com'
-        from: 'alertmanager@example.com'
-        smarthost: 'smtp.example.com:587'
-        auth_username: 'alertmanager@example.com'
-        auth_password: 'password'
     webhook_configs:
       - url: 'http://webhook-receiver:8080/critical'
 

@@ -8,3 +8,4 @@ WHERE permission_id IN (SELECT id FROM s_api_permission WHERE code = 'role.permi
 DELETE FROM s_api_permission WHERE code = 'role.permission';
 
 DROP TABLE IF EXISTS casbin_rule;
+

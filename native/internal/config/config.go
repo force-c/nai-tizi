@@ -4,43 +4,46 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"unicode"
 
 	"github.com/spf13/viper"
 )
 
-const (
-	AppEnvVar       = "quick_admin_APP_ENV"
-	LegacyAppEnvVar = "ADCS_APP_ENV"
-)
+const AppEnvVar = "QUICK_ADMIN_APP_ENV"
 
-// Server 定义业务数据结构。
 type Server struct {
 	Port int `mapstructure:"port"`
 }
 
-// Database 定义业务数据结构。
 type Database struct {
 	DSN                    string `mapstructure:"dsn"`
 	MaxOpenConns           int    `mapstructure:"maxOpenConns"`
 	MaxIdleConns           int    `mapstructure:"maxIdleConns"`
 	ConnMaxLifetimeMinutes int    `mapstructure:"connMaxLifetimeMinutes"`
-	SlowThreshold          int    `mapstructure:"slowThreshold"` // 慢 SQL 阈值（毫秒），默认 100ms
-	AutoMigrate            bool   `mapstructure:"autoMigrate"`   // 是否开启 GORM 自动生成表结构
+	SlowThreshold          int    `mapstructure:"slowThreshold"`
 }
 
-// Redis 定义业务数据结构。
 type Redis struct {
-	Addr, Password string
-	DB             int
+	Addr     string `mapstructure:"addr"`
+	Password string `mapstructure:"password"`
+	DB       int    `mapstructure:"db"`
 }
 
-// JWT 定义业务数据结构。
 type JWT struct {
-	Secret string
-	Expire int64
+	Secret string `mapstructure:"secret"`
+	Expire int64  `mapstructure:"expire"`
 }
 
-// WeChat 定义业务数据结构。
+type Auth struct {
+	TokenHeader     string `mapstructure:"tokenHeader"`
+	AllowConcurrent bool   `mapstructure:"allowConcurrent"`
+}
+
+type CORS struct {
+	Enabled bool `mapstructure:"enabled"`
+}
+
 type WeChat struct {
 	Enabled    bool   `mapstructure:"enabled" json:"enabled"`
 	AppID      string `mapstructure:"appId" json:"appid"`
@@ -48,26 +51,28 @@ type WeChat struct {
 	TemplateID string `mapstructure:"templateId" json:"templateId"`
 }
 
-// MQTT 定义业务数据结构。
 type MQTT struct {
-	Enabled                              bool `mapstructure:"enabled"`
-	Broker, ClientID, Username, Password string
-	QoS                                  byte
+	Enabled  bool   `mapstructure:"enabled"`
+	Broker   string `mapstructure:"broker"`
+	ClientID string `mapstructure:"clientId"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
+	QoS      byte   `mapstructure:"qos"`
 }
 
-// RabbitMQ 定义业务数据结构。
 type RabbitMQ struct {
-	Enabled bool `mapstructure:"enabled"`
-	URL     string
+	Enabled bool   `mapstructure:"enabled"`
+	URL     string `mapstructure:"url"`
 }
 
-// SMS 定义业务数据结构。
 type SMS struct {
-	Enabled                                              bool `mapstructure:"enabled"`
-	AccessKeyId, AccessKeySecret, SignName, TemplateCode string
+	Enabled         bool   `mapstructure:"enabled"`
+	AccessKeyId     string `mapstructure:"accessKeyId"`
+	AccessKeySecret string `mapstructure:"accessKeySecret"`
+	SignName        string `mapstructure:"signName"`
+	TemplateCode    string `mapstructure:"templateCode"`
 }
 
-// Email 定义业务数据结构。
 type Email struct {
 	Enabled  bool   `mapstructure:"enabled"`
 	Host     string `mapstructure:"host"`
@@ -77,24 +82,21 @@ type Email struct {
 	From     string `mapstructure:"from"`
 }
 
-// S3 定义业务数据结构。
 type S3 struct {
-	Enabled         bool   `mapstructure:"enabled"`         // 是否启用
-	Endpoint        string `mapstructure:"endpoint"`        // MinIO/S3服务器地址
-	AccessKeyID     string `mapstructure:"accessKeyId"`     // 访问密钥ID
-	SecretAccessKey string `mapstructure:"secretAccessKey"` // 访问密钥
-	Region          string `mapstructure:"region"`          // 区域
-	Bucket          string `mapstructure:"bucket"`          // 默认存储桶
-	UseSSL          bool   `mapstructure:"useSSL"`          // 是否使用SSL
-	ForcePathStyle  bool   `mapstructure:"forcePathStyle"`  // 强制路径样式（MinIO需要）
+	Enabled         bool   `mapstructure:"enabled"`
+	Endpoint        string `mapstructure:"endpoint"`
+	AccessKeyID     string `mapstructure:"accessKeyId"`
+	SecretAccessKey string `mapstructure:"secretAccessKey"`
+	Region          string `mapstructure:"region"`
+	Bucket          string `mapstructure:"bucket"`
+	UseSSL          bool   `mapstructure:"useSSL"`
+	ForcePathStyle  bool   `mapstructure:"forcePathStyle"`
 }
 
-// Scheduler 定义业务数据结构。
 type Scheduler struct {
 	Enabled bool `mapstructure:"enabled"`
 }
 
-// WebSocket 定义业务数据结构。
 type WebSocket struct {
 	Enabled             bool `mapstructure:"enabled"`
 	TimeoutEnabled      bool `mapstructure:"timeoutEnabled"`
@@ -104,156 +106,203 @@ type WebSocket struct {
 	MaxReadTimeouts     int  `mapstructure:"maxReadTimeouts"`
 }
 
-// Auth 认证配置
-type Auth struct {
-	TokenHeader     string `mapstructure:"tokenHeader"`     // Token 请求头名称，默认 "Authorization"
-	AllowConcurrent bool   `mapstructure:"allowConcurrent"` // 是否允许并发登录，默认 false
-	ShareToken      bool   `mapstructure:"shareToken"`      // 并发登录时是否共享 Token，默认 false
-}
-
-// Captcha 验证码配置
 type Captcha struct {
 	Image ImageCaptcha `mapstructure:"image"`
 	SMS   SMSCaptcha   `mapstructure:"sms"`
 	Email EmailCaptcha `mapstructure:"email"`
 }
 
-// ImageCaptcha 图形验证码配置
 type ImageCaptcha struct {
-	Enabled bool `mapstructure:"enabled"` // 是否启用
-	Length  int  `mapstructure:"length"`  // 验证码长度
-	Width   int  `mapstructure:"width"`   // 图片宽度
-	Height  int  `mapstructure:"height"`  // 图片高度
-	Expire  int  `mapstructure:"expire"`  // 过期时间（秒）
+	Enabled bool `mapstructure:"enabled"`
+	Length  int  `mapstructure:"length"`
+	Width   int  `mapstructure:"width"`
+	Height  int  `mapstructure:"height"`
+	Expire  int  `mapstructure:"expire"`
 }
 
-// SMSCaptcha 短信验证码配置
 type SMSCaptcha struct {
-	Enabled  bool   `mapstructure:"enabled"`  // 是否启用
-	Length   int    `mapstructure:"length"`   // 验证码长度
-	Expire   int    `mapstructure:"expire"`   // 过期时间（秒）
-	Template string `mapstructure:"template"` // 短信模板
-	Provider string `mapstructure:"provider"` // 短信服务商（aliyun/tencent）
+	Enabled  bool   `mapstructure:"enabled"`
+	Length   int    `mapstructure:"length"`
+	Expire   int    `mapstructure:"expire"`
+	Template string `mapstructure:"template"`
+	Provider string `mapstructure:"provider"`
 }
 
-// EmailCaptcha 邮箱验证码配置
 type EmailCaptcha struct {
-	Enabled  bool   `mapstructure:"enabled"`  // 是否启用
-	Length   int    `mapstructure:"length"`   // 验证码长度
-	Expire   int    `mapstructure:"expire"`   // 过期时间（秒）
-	Template string `mapstructure:"template"` // 邮件模板
+	Enabled  bool   `mapstructure:"enabled"`
+	Length   int    `mapstructure:"length"`
+	Expire   int    `mapstructure:"expire"`
+	Template string `mapstructure:"template"`
 }
 
-// Config 定义业务数据结构。
 type Config struct {
-	AppDir    string // 应用程序所在目录（可执行文件目录）
-	Server    Server
-	Database  Database
-	Redis     Redis
-	JWT       JWT
-	Auth      Auth
-	Captcha   Captcha // 验证码配置
-	WeChat    WeChat
-	MQTT      MQTT
-	RabbitMQ  RabbitMQ
-	SMS       SMS
-	Email     Email
-	S3        S3
-	Scheduler Scheduler
-	WebSocket WebSocket
-	Env       string
+	AppDir    string    `mapstructure:"-"`
+	Server    Server    `mapstructure:"server"`
+	Database  Database  `mapstructure:"database"`
+	Redis     Redis     `mapstructure:"redis"`
+	JWT       JWT       `mapstructure:"jwt"`
+	Auth      Auth      `mapstructure:"auth"`
+	CORS      CORS      `mapstructure:"cors"`
+	Captcha   Captcha   `mapstructure:"captcha"`
+	WeChat    WeChat    `mapstructure:"wechat"`
+	MQTT      MQTT      `mapstructure:"mqtt"`
+	RabbitMQ  RabbitMQ  `mapstructure:"rabbitmq"`
+	SMS       SMS       `mapstructure:"sms"`
+	Email     Email     `mapstructure:"email"`
+	S3        S3        `mapstructure:"s3"`
+	Scheduler Scheduler `mapstructure:"scheduler"`
+	WebSocket WebSocket `mapstructure:"websocket"`
 }
 
-// Load 执行业务逻辑。
 func Load(appDir string) (*Config, *viper.Viper, error) {
+	profile := CurrentEnv()
+	if profile != "dev" && profile != "prod" {
+		return nil, nil, fmt.Errorf("%s must be dev or prod", AppEnvVar)
+	}
 	v := viper.New()
-	env := CurrentEnv()
+	setDefaults(v)
+	v.SetEnvPrefix("QUICK_ADMIN")
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.AutomaticEnv()
+	if err := bindEnvironment(v); err != nil {
+		return nil, nil, err
+	}
 
-	configFileName := fmt.Sprintf("conf.%s.yaml", env)
+	configFileName := fmt.Sprintf("conf.%s.yaml", profile)
 	foundPath, err := ResolveFilePath(appDir, configFileName)
 	if err != nil {
 		return nil, nil, err
 	}
-
 	v.SetConfigFile(foundPath)
 	v.SetConfigType("yaml")
-
 	if err := v.ReadInConfig(); err != nil {
-		return nil, nil, fmt.Errorf("failed to read config from %s: %w", foundPath, err)
+		return nil, nil, fmt.Errorf("read config from %s: %w", foundPath, err)
 	}
 
 	var cfg Config
 	if err := v.Unmarshal(&cfg); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("decode config: %w", err)
 	}
-
-	// 设置应用程序目录
 	cfg.AppDir = appDir
-	cfg.Env = env
-
-	if cfg.Database.DSN == "" {
-		return nil, nil, fmt.Errorf("database dsn is required")
-	}
-	if cfg.Redis.Addr == "" {
-		return nil, nil, fmt.Errorf("redis addr is required")
-	}
-	if cfg.JWT.Secret == "" {
-		return nil, nil, fmt.Errorf("jwt secret is required")
-	}
-	// MQTT validation
-	if cfg.MQTT.Enabled {
-		if cfg.MQTT.Broker == "" || cfg.MQTT.ClientID == "" {
-			return nil, nil, fmt.Errorf("mqtt broker and clientId are required when enabled")
-		}
-	}
-	// RabbitMQ validation
-	if cfg.RabbitMQ.Enabled {
-		if cfg.RabbitMQ.URL == "" {
-			return nil, nil, fmt.Errorf("rabbitmq url is required when enabled")
-		}
-	}
-	// Auth 默认值设置
-	if cfg.Auth.TokenHeader == "" {
-		cfg.Auth.TokenHeader = "Authorization"
-	}
-
-	// Captcha 默认值设置
-	if !v.IsSet("captcha.image.length") {
-		cfg.Captcha.Image.Length = 4
-	}
-	if !v.IsSet("captcha.image.width") {
-		cfg.Captcha.Image.Width = 120
-	}
-	if !v.IsSet("captcha.image.height") {
-		cfg.Captcha.Image.Height = 40
-	}
-	if !v.IsSet("captcha.image.expire") {
-		cfg.Captcha.Image.Expire = 300
-	}
-	if !v.IsSet("captcha.sms.length") {
-		cfg.Captcha.SMS.Length = 6
-	}
-	if !v.IsSet("captcha.sms.expire") {
-		cfg.Captcha.SMS.Expire = 300
-	}
-	if !v.IsSet("captcha.email.length") {
-		cfg.Captcha.Email.Length = 6
-	}
-	if !v.IsSet("captcha.email.expire") {
-		cfg.Captcha.Email.Expire = 300
+	if err := cfg.Validate(profile); err != nil {
+		return nil, nil, err
 	}
 	return &cfg, v, nil
 }
 
+func setDefaults(v *viper.Viper) {
+	v.SetDefault("server.port", 9009)
+	v.SetDefault("database.maxOpenConns", 100)
+	v.SetDefault("database.maxIdleConns", 10)
+	v.SetDefault("database.connMaxLifetimeMinutes", 60)
+	v.SetDefault("database.slowThreshold", 200)
+	v.SetDefault("redis.db", 0)
+	v.SetDefault("jwt.expire", 7200)
+	v.SetDefault("auth.tokenHeader", "Authorization")
+	v.SetDefault("auth.allowConcurrent", false)
+	v.SetDefault("cors.enabled", false)
+	v.SetDefault("captcha.image.length", 4)
+	v.SetDefault("captcha.image.width", 120)
+	v.SetDefault("captcha.image.height", 40)
+	v.SetDefault("captcha.image.expire", 300)
+	v.SetDefault("captcha.sms.length", 6)
+	v.SetDefault("captcha.sms.expire", 300)
+	v.SetDefault("captcha.email.length", 6)
+	v.SetDefault("captcha.email.expire", 300)
+}
+
+func bindEnvironment(v *viper.Viper) error {
+	keys := []string{
+		"server.port",
+		"database.dsn", "database.maxOpenConns", "database.maxIdleConns", "database.connMaxLifetimeMinutes", "database.slowThreshold",
+		"redis.addr", "redis.password", "redis.db",
+		"jwt.secret", "jwt.expire",
+		"auth.tokenHeader", "auth.allowConcurrent",
+		"cors.enabled",
+		"captcha.image.enabled", "captcha.image.length", "captcha.image.width", "captcha.image.height", "captcha.image.expire",
+		"captcha.sms.enabled", "captcha.sms.length", "captcha.sms.expire", "captcha.sms.template", "captcha.sms.provider",
+		"captcha.email.enabled", "captcha.email.length", "captcha.email.expire", "captcha.email.template",
+		"wechat.enabled", "wechat.appId", "wechat.secret", "wechat.templateId",
+		"mqtt.enabled", "mqtt.broker", "mqtt.clientId", "mqtt.username", "mqtt.password", "mqtt.qos",
+		"rabbitmq.enabled", "rabbitmq.url",
+		"sms.enabled", "sms.accessKeyId", "sms.accessKeySecret", "sms.signName", "sms.templateCode",
+		"email.enabled", "email.host", "email.port", "email.username", "email.password", "email.from",
+		"s3.enabled", "s3.endpoint", "s3.accessKeyId", "s3.secretAccessKey", "s3.region", "s3.bucket", "s3.useSSL", "s3.forcePathStyle",
+		"scheduler.enabled",
+		"websocket.enabled", "websocket.timeoutEnabled", "websocket.readTimeoutSeconds", "websocket.writeTimeoutSeconds", "websocket.heartbeatEnabled", "websocket.maxReadTimeouts",
+	}
+	for _, key := range keys {
+		if err := v.BindEnv(key, environmentName(key)); err != nil {
+			return fmt.Errorf("bind environment for %s: %w", key, err)
+		}
+	}
+	return nil
+}
+
+func environmentName(key string) string {
+	runes := []rune(key)
+	var name strings.Builder
+	name.WriteString("QUICK_ADMIN_")
+	for i, current := range runes {
+		switch {
+		case current == '.':
+			name.WriteByte('_')
+		case unicode.IsUpper(current):
+			previousIsLower := i > 0 && (unicode.IsLower(runes[i-1]) || unicode.IsDigit(runes[i-1]))
+			startsWord := i > 0 && unicode.IsUpper(runes[i-1]) && i+1 < len(runes) && unicode.IsLower(runes[i+1])
+			if previousIsLower || startsWord {
+				name.WriteByte('_')
+			}
+			name.WriteRune(current)
+		default:
+			name.WriteRune(unicode.ToUpper(current))
+		}
+	}
+	return name.String()
+}
+
+func (c *Config) Validate(profile string) error {
+	if c.Server.Port < 1 || c.Server.Port > 65535 {
+		return fmt.Errorf("server.port must be between 1 and 65535")
+	}
+	if c.Database.DSN == "" {
+		return fmt.Errorf("database.dsn is required")
+	}
+	if c.Redis.Addr == "" {
+		return fmt.Errorf("redis.addr is required")
+	}
+	if len(c.JWT.Secret) < 32 {
+		return fmt.Errorf("jwt.secret must contain at least 32 characters")
+	}
+	if profile == "prod" && c.CORS.Enabled {
+		return fmt.Errorf("cors must be disabled in prod")
+	}
+	if c.MQTT.Enabled && (c.MQTT.Broker == "" || c.MQTT.ClientID == "") {
+		return fmt.Errorf("mqtt.broker and mqtt.clientId are required when MQTT is enabled")
+	}
+	if c.RabbitMQ.Enabled && c.RabbitMQ.URL == "" {
+		return fmt.Errorf("rabbitmq.url is required when RabbitMQ is enabled")
+	}
+	if c.WeChat.Enabled && (c.WeChat.AppID == "" || c.WeChat.Secret == "") {
+		return fmt.Errorf("wechat.appId and wechat.secret are required when WeChat is enabled")
+	}
+	if c.SMS.Enabled && (c.SMS.AccessKeyId == "" || c.SMS.AccessKeySecret == "" || c.SMS.SignName == "" || c.SMS.TemplateCode == "") {
+		return fmt.Errorf("SMS credentials, signName and templateCode are required when SMS is enabled")
+	}
+	if c.Email.Enabled && (c.Email.Host == "" || c.Email.Port <= 0 || c.Email.Username == "" || c.Email.Password == "" || c.Email.From == "") {
+		return fmt.Errorf("email host, port, username, password and from are required when email is enabled")
+	}
+	if c.S3.Enabled && (c.S3.Endpoint == "" || c.S3.AccessKeyID == "" || c.S3.SecretAccessKey == "" || c.S3.Bucket == "") {
+		return fmt.Errorf("S3 endpoint, credentials and bucket are required when S3 is enabled")
+	}
+	return nil
+}
+
 func CurrentEnv() string {
-	env := os.Getenv(AppEnvVar)
-	if env == "" {
-		env = os.Getenv(LegacyAppEnvVar)
+	if profile := os.Getenv(AppEnvVar); profile != "" {
+		return profile
 	}
-	if env == "" {
-		return "dev"
-	}
-	return env
+	return "dev"
 }
 
 func ResolveFilePath(appDir, fileName string) (string, error) {
@@ -263,15 +312,10 @@ func ResolveFilePath(appDir, fileName string) (string, error) {
 		filepath.Join(workDir, "cmd", "api", fileName),
 		filepath.Join(appDir, fileName),
 	}
-
 	for _, path := range candidates {
-		if path == "" {
-			continue
-		}
 		if _, err := os.Stat(path); err == nil {
 			return path, nil
 		}
 	}
-
 	return "", fmt.Errorf("config file not found: tried %v", candidates)
 }

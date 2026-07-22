@@ -57,7 +57,7 @@ func Fail(c *echo.Context, msg string) {
 	if msg == "" {
 		msg = defaultFailMsg
 	}
-	c.JSON(200, Response{Code: CodeServerError, Msg: msg})
+	c.JSON(http.StatusInternalServerError, Response{Code: CodeServerError, Msg: msg})
 }
 
 // FailWithMsg 执行业务逻辑。
@@ -65,27 +65,27 @@ func FailWithMsg(c *echo.Context, msg string) { Fail(c, msg) }
 
 // BadRequest 执行业务逻辑。
 func BadRequest(c *echo.Context, msg string) {
-	c.JSON(200, Response{Code: CodeBadRequest, Msg: msg})
+	c.JSON(http.StatusBadRequest, Response{Code: CodeBadRequest, Msg: msg})
 }
 
 // Unauthorized 执行业务逻辑。
 func Unauthorized(c *echo.Context, msg string) {
-	c.JSON(200, Response{Code: CodeUnauthorized, Msg: msg})
+	c.JSON(http.StatusUnauthorized, Response{Code: CodeUnauthorized, Msg: msg})
 }
 
 // Forbidden 执行业务逻辑。
 func Forbidden(c *echo.Context, msg string) {
-	c.JSON(200, Response{Code: CodeForbidden, Msg: msg})
+	c.JSON(http.StatusForbidden, Response{Code: CodeForbidden, Msg: msg})
 }
 
 // NotFound 执行业务逻辑。
 func NotFound(c *echo.Context, msg string) {
-	c.JSON(200, Response{Code: CodeNotFound, Msg: msg})
+	c.JSON(http.StatusNotFound, Response{Code: CodeNotFound, Msg: msg})
 }
 
 // InternalServerError 执行业务逻辑。
 func InternalServerError(c *echo.Context, msg string) {
-	c.JSON(200, Response{Code: CodeServerError, Msg: msg})
+	c.JSON(http.StatusInternalServerError, Response{Code: CodeServerError, Msg: msg})
 }
 
 // Error 处理结构化错误（增强版：支持类型区分和日志记录）
@@ -192,7 +192,13 @@ func SuccessCode(c *echo.Context, code int, data interface{}) {
 }
 
 // FailCode 执行业务逻辑。
-func FailCode(c *echo.Context, code int, msg string) { c.JSON(200, Response{Code: code, Msg: msg}) }
+func FailCode(c *echo.Context, code int, msg string) {
+	status := http.StatusOK
+	if code >= 400 && code <= 599 {
+		status = code
+	}
+	c.JSON(status, Response{Code: code, Msg: msg})
+}
 
 // ValidationFieldError 单个字段验证错误
 type ValidationFieldError struct {
@@ -209,5 +215,5 @@ type ValidationErrorResponse struct {
 
 // FailValidation 返回验证错误（包含字段详情）
 func FailValidation(c *echo.Context, code int, msg string, errors []ValidationFieldError) {
-	c.JSON(200, ValidationErrorResponse{Code: code, Msg: msg, Errors: errors})
+	c.JSON(http.StatusBadRequest, ValidationErrorResponse{Code: code, Msg: msg, Errors: errors})
 }

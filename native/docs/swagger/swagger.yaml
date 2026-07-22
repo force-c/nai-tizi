@@ -583,16 +583,12 @@ definitions:
   github_com_gcc798_quick_admin_internal_domain_request.LoginRequest:
     description: 统一登录请求参数，根据 grantType 使用不同的字段组合
     properties:
-      appid:
-        description: 小程序ID
-        example: wx-app-id
-        type: string
       clientId:
         description: 客户端认证
-        example: client-id
+        example: web-admin
         type: string
       code:
-        description: 验证码（email/xcx 必填）
+        description: 验证码（email/sms 必填）
         example: "123456"
         type: string
       email:
@@ -600,24 +596,21 @@ definitions:
         example: admin@example.com
         type: string
       grantType:
-        description: 授权类型：password-密码登录, email-邮箱验证码, xcx-微信小程序
+        description: 授权类型
         enum:
         - password
         - email
-        - xcx
+        - sms
+        - wechat
         example: password
         type: string
       password:
         description: 密码（password 必填）
-        example: admin123
+        example: user-password
         type: string
       phonenumber:
-        description: 手机号（xcx 必填）
+        description: 手机号（sms 必填）
         example: "13800138000"
-        type: string
-      smsCode:
-        description: 短信验证码（xcx/sms 必填）
-        example: "123456"
         type: string
       username:
         description: 用户凭证（根据 grantType 选填）
@@ -628,7 +621,7 @@ definitions:
         example: captcha-uuid-12345
         type: string
       wxCode:
-        description: 微信code（xcx 必填）
+        description: 微信 code（wechat 必填）
         example: wx-code-from-wechat
         type: string
     required:
@@ -1251,12 +1244,8 @@ definitions:
         type: string
       client_id:
         description: 客户端ID
-        example: client-id
+        example: web-admin
         type: string
-      expire_in:
-        description: AccessToken 过期时间（秒）
-        example: 1800
-        type: integer
       expires_in:
         description: AccessToken 过期时间（秒）
         example: 1800
@@ -1265,10 +1254,6 @@ definitions:
         description: 微信OpenID
         example: openid
         type: string
-      refresh_expire_in:
-        description: RefreshToken 过期时间（秒）
-        example: 604800
-        type: integer
       refresh_expires_in:
         description: RefreshToken 过期时间（秒）
         example: 604800
@@ -1345,7 +1330,7 @@ definitions:
     properties:
       clientId:
         description: 客户端ID
-        example: client-id
+        example: web-admin
         type: string
       refreshToken:
         description: 刷新令牌
@@ -4261,9 +4246,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: 使用 RefreshToken 获取新的 AccessToken 和 RefreshToken（轮换机制）
+      description: Refresh Token 单次使用，刷新后立即轮换
       parameters:
-      - description: 刷新令牌请求参数
+      - description: 刷新令牌请求
         in: body
         name: request
         required: true
@@ -4282,11 +4267,11 @@ paths:
                   $ref: '#/definitions/github_com_gcc798_quick_admin_internal_domain_response.RefreshTokenResponse'
               type: object
         "400":
-          description: 参数错误
+          description: Bad Request
           schema:
             $ref: '#/definitions/github_com_gcc798_quick_admin_internal_domain_response.Response'
         "401":
-          description: RefreshToken 无效或已过期
+          description: Unauthorized
           schema:
             $ref: '#/definitions/github_com_gcc798_quick_admin_internal_domain_response.Response'
       summary: 刷新访问令牌
@@ -4460,9 +4445,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: 支持多种登录方式：密码登录(password)、邮箱验证码(email)、微信小程序(xcx)
+      description: 支持密码、邮箱验证码、短信验证码和纯微信登录
       parameters:
-      - description: 登录请求参数
+      - description: 登录请求
         in: body
         name: request
         required: true
@@ -4481,11 +4466,11 @@ paths:
                   $ref: '#/definitions/github_com_gcc798_quick_admin_internal_domain_response.LoginResponse'
               type: object
         "400":
-          description: 参数错误
+          description: Bad Request
           schema:
             $ref: '#/definitions/github_com_gcc798_quick_admin_internal_domain_response.Response'
         "401":
-          description: 认证失败
+          description: Unauthorized
           schema:
             $ref: '#/definitions/github_com_gcc798_quick_admin_internal_domain_response.Response'
       summary: 用户登录
@@ -4493,11 +4478,6 @@ paths:
       - 认证
   /logout:
     post:
-      consumes:
-      - application/json
-      description: 使当前用户的 RefreshToken 失效，AccessToken 会在过期后自动失效
-      produces:
-      - application/json
       responses:
         "200":
           description: OK

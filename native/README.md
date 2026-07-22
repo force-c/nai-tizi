@@ -1,128 +1,63 @@
-# quick.admin
+# quick.admin native
 
-## 项目说明
+`native` 是 quick.admin 的原生 Go 后端，也是三套后端实现的业务与 HTTP 契约基线。
 
-这是一个极简脚手架仓库，用来并行放置 `quick.admin` 的多套后端实现和前端工程，便于保留业务基线、承载不同框架版本以及统一开展开发与联调。
+## 本地启动
 
-当前仓库更偏向工程骨架与实现对照集合，重点是：
-
-- 保留 `native` 作为业务基线
-- 提供 `gozero`、`kratos` 两套重写实现
-- 提供 `web-react` 作为唯一的 React 前端工程
-
-当前主要目录：
-
-- `native/`
-  - 原始后端实现
-  - 作为业务基线和对照参考
-- `gozero/`
-  - 基于 go-zero 的后端重写版本
-- `kratos/`
-  - 基于 Kratos 的后端重写版本
-- `web-react/`
-  - React 前端工程
-
-## 仓库结构
-
-```text
-quick.admin/
-├── native/
-├── gozero/
-├── kratos/
-├── web-react/
-├── LICENSE
-└── README.md
-```
-
-## 各子工程职责
-
-### `native/`
-
-原始业务后端。
-
-特点：
-
-- 作为业务语义基线
-- 路由、参数、返回结构、错误语义都以它为重要参考
-
-### `gozero/`
-
-基于 go-zero 的重写版本。
-
-特点：
-
-- 保留了 `sys-api` / `sys-rpc` 分层
-- 主要用于和原始实现做框架迁移对照
-
-### `kratos/`
-
-基于 Kratos 的重写版本。
-
-特点：
-
-- 当前采用 monorepo 结构
-- 主要服务位于：
-  - `kratos/application/sys-api`
-  - `kratos/application/sys-rpc`
-- 共享 proto 位于：
-  - `kratos/api/system/v1`
-- 共享基础能力位于：
-  - `kratos/pkg`
-- 详细文档位于：
-  - `kratos/docs`
-
-### `web-react/`
-
-唯一的前端工程，基于 React、TypeScript、Vite 和 Ant Design 构建。
-
-特点：
-
-- 对接后端接口
-- 在重写过程中，尽量保持零改动或最小改动适配后端
-
-## 当前约定
-
-- `native/` 作为业务基线
-- `gozero/` 和 `kratos/` 是两套独立重写实现
-- 前端联调时，需要明确当前对接的是哪一套后端
-- 如果对比接口契约、行为或返回结构，优先参考 `native/`
-
-## 常见入口
-
-### 启动或开发 Kratos 版本
-
-目录：
-
-- [/Users/guoc/dev/code_go/src/quick.admin/kratos](/Users/guoc/dev/code_go/src/quick.admin/kratos)
-
-常用命令：
+依赖 Go 1.25、PostgreSQL 16、Redis 7。开发环境的本地 PostgreSQL、Redis 和 JWT 参数直接配置在 `cmd/api/conf.dev.yaml`，确认本机服务与配置一致后即可启动：
 
 ```bash
-cd kratos
-make conf
-make proto-all
-make wire
-make ent
-make test
-make build-all
+cd native
+go run ./cmd/api
 ```
 
-### 启动或开发 go-zero 版本
+`QUICK_ADMIN_APP_ENV` 只负责选择 `cmd/api/conf.dev.yaml` 或 `cmd/api/conf.prod.yaml`，默认 `dev`，因此本地启动无需 export。配置优先级是：代码默认值 < YAML < `QUICK_ADMIN_*` 环境变量；需要临时覆盖某项配置时仍可使用环境变量。配置结构中没有 `env` 字段，也不识别旧环境变量。
 
-目录：
+开发配置允许保存本机专用账号和开发密钥，但不得用于生产。`conf.prod.yaml` 中的密钥保持为空，生产环境必须由部署平台注入。
 
-- [/Users/guoc/dev/code_go/src/quick.admin/gozero](/Users/guoc/dev/code_go/src/quick.admin/gozero)
+生产环境默认关闭 CORS，前后端通过 Nginx 同源代理；开发环境可在 `conf.dev.yaml` 中开启。
 
-### 开发前端
+## 数据库迁移与初始管理员
 
-目录：
+服务启动时自动执行嵌入二进制的 Goose 迁移。数据库结构只能通过 `internal/database/migrations/sql/` 中的版本化 SQL 修改，不使用 GORM AutoMigrate。
 
-- [/Users/guoc/dev/code_go/src/quick.admin/web-react](/Users/guoc/dev/code_go/src/quick.admin/web-react)
+迁移会创建逻辑客户端 `web-admin` 和内置角色，但不会写入默认管理员或默认密码。创建首个管理员：
 
-## 说明
+```bash
+export QUICK_ADMIN_USERMGR_PASSWORD='replace-with-a-strong-password'
+go run ./cmd/usermgr --operation=create --username=admin --nickname=管理员 --role=super_admin
+```
 
-如果后续继续扩展新的后端实现或新的微服务，建议继续保持：
+重置密码：
 
-- 仓库根目录按实现或子系统分目录
-- 各实现内部再按自身框架规范组织
-- 公共契约、文档和基础设施说明尽量写在对应子工程内
+```bash
+export QUICK_ADMIN_USERMGR_PASSWORD='replace-with-a-new-strong-password'
+go run ./cmd/usermgr --operation=reset --username=admin
+```
+
+密码不支持命令行参数，工具也不会回显密码。
+
+## 认证
+
+登录接口为 `POST /login`，客户端 ID 为 `web-admin`，支持 `password`、`email`、`sms`、`wechat`。微信登录只接收小程序 `wxCode`，服务端通过微信接口换取 OpenID/UnionID，不接收客户端提交的 OpenID。
+
+Access Token 与 Refresh Token 都关联服务端 Redis 会话；刷新令牌单次使用并在刷新后轮换，登出会立即撤销当前会话。
+
+## 质量检查
+
+```bash
+make verify # go test、go vet、race、Swagger freshness
+make ci     # verify + Docker build
+```
+
+涉及通用工具、配置、认证基础设施和中间件的改动必须补充单元测试。controller/service 中的具体业务逻辑不强制单测，可按风险补充集成或契约测试。
+
+## Docker
+
+```bash
+export QUICK_ADMIN_POSTGRES_PASSWORD='replace-me'
+export QUICK_ADMIN_JWT_SECRET='replace-with-at-least-32-random-characters'
+docker compose -f dockerfile/docker-compose.yml up --build
+```
+
+HTTP 端口为 `9009`，探针为 `/health/startup`、`/health/live`、`/health/ready`。

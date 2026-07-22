@@ -2,8 +2,6 @@ package container
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	stdlog "log"
 	"os"
@@ -12,7 +10,6 @@ import (
 	"github.com/gcc798/quick.admin/internal/config"
 	"github.com/gcc798/quick.admin/internal/database"
 	"github.com/gcc798/quick.admin/internal/database/migrations"
-	"github.com/gcc798/quick.admin/internal/domain/model"
 	"github.com/gcc798/quick.admin/internal/logger"
 	"github.com/gcc798/quick.admin/internal/messaging/websocket"
 	"github.com/gcc798/quick.admin/pkg/captcha"
@@ -84,8 +81,6 @@ type container struct {
 
 	components []Component
 }
-
-const weChatXcxConfigCode = "WechatXcxCfg"
 
 // NewEmpty 创建一个空容器，调用方可以按需初始化指定组件。
 func NewEmpty(cfg *config.Config, v *viper.Viper, log logger.Logger) *container {
@@ -179,35 +174,7 @@ func (c *container) initDB() error {
 		c.logger.Warn("failed to register ID generation plugin", zap.Error(err))
 	}
 
-	// GORM AutoMigrate 配置
-	if c.config.Database.AutoMigrate {
-		c.logger.Info("starting database auto migration...")
-		if err := db.AutoMigrate(
-			&model.User{},
-			&model.DictData{},
-			&model.LoginLog{},
-			&model.OperLog{},
-			&model.AuthClient{},
-			&model.BuMessageRetry{},
-			&model.BuMessageRetryLog{},
-			&model.Role{},
-			&model.Menu{},
-			&model.Org{},
-			&model.Config{},
-			&model.StorageEnv{},
-			&model.Attachment{},
-			&model.MUserRole{},
-			&model.MRoleMenu{},
-			&model.ApiPermission{},
-			&model.MRoleApiPermission{},
-			&model.MUserApiPermission{},
-		); err != nil {
-			return fmt.Errorf("failed to auto migrate: %w", err)
-		}
-		c.logger.Info("database auto migration completed")
-	}
-
-	// 当前工程仍通过 AutoMigrate 创建基础表，因此在其后执行 Goose，兼容全新数据库与存量数据库。
+	// Goose 是唯一数据库结构变更入口。
 	c.logger.Info("starting goose database migrations...")
 	if err := migrations.Up(sqlDB); err != nil {
 		return fmt.Errorf("failed to migrate database: %w", err)
@@ -274,7 +241,6 @@ func (c *container) initRabbitMQ() error {
 
 // initThirdParty 初始化第三方服务
 func (c *container) initThirdParty() {
-	c.loadWeChatXcxConfig()
 	if c.config.WeChat.Enabled {
 		c.wechatManager = wechat.NewManager(wechat.Config{
 			Enabled: c.config.WeChat.Enabled,
@@ -329,24 +295,6 @@ func (c *container) initThirdParty() {
 			c.s3Manager = s3Manager
 		}
 	}
-}
-
-func (c *container) loadWeChatXcxConfig() {
-	var item model.Config
-	err := c.db.Where("code = ?", weChatXcxConfigCode).First(&item).Error
-	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			c.logger.Warn("failed to load wechat xcx config from database", zap.Error(err))
-		}
-		return
-	}
-
-	dbConfig := c.config.WeChat
-	if err := json.Unmarshal(item.Data, &dbConfig); err != nil {
-		c.logger.Warn("failed to parse wechat xcx config", zap.Error(err))
-		return
-	}
-	c.config.WeChat = dbConfig
 }
 
 // initStorageManager 初始化存储管理器

@@ -3,9 +3,11 @@ package middleware
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -32,37 +34,33 @@ const (
 	operLogBatchSize     = 100              // 批量写入大小
 	operLogFlushInterval = 10 * time.Second // 定时刷新间隔
 	operLogChannelSize   = 1000             // 通道缓冲大小
+	operLogBodyLimit     = 64 << 10         // 最多记录 64 KiB 请求体
+	redactedValue        = "***"
 )
 
 // OperLogWriter 操作日志写入器
 type OperLogWriter struct {
-	db      *gorm.DB
-	logger  logging.Logger
-	logChan chan *model.OperLog
-	ctx     context.Context
-	cancel  context.CancelFunc
-	wg      sync.WaitGroup
+	db       *gorm.DB
+	logger   logging.Logger
+	logChan  chan *model.OperLog
+	ctx      context.Context
+	cancel   context.CancelFunc
+	wg       sync.WaitGroup
+	stopOnce sync.Once
 }
 
-var (
-	operLogWriter     *OperLogWriter
-	operLogWriterOnce sync.Once
-)
-
-// getOperLogWriter 获取操作日志写入器单例
-func getOperLogWriter(db *gorm.DB, logger logging.Logger) *OperLogWriter {
-	operLogWriterOnce.Do(func() {
-		ctx, cancel := context.WithCancel(context.Background())
-		operLogWriter = &OperLogWriter{
-			db:      db,
-			logger:  logger,
-			logChan: make(chan *model.OperLog, operLogChannelSize),
-			ctx:     ctx,
-			cancel:  cancel,
-		}
-		operLogWriter.start()
-	})
-	return operLogWriter
+// NewOperLogWriter creates and starts one application-scoped operation log writer.
+func NewOperLogWriter(db *gorm.DB, logger logging.Logger) *OperLogWriter {
+	ctx, cancel := context.WithCancel(context.Background())
+	w := &OperLogWriter{
+		db:      db,
+		logger:  logger,
+		logChan: make(chan *model.OperLog, operLogChannelSize),
+		ctx:     ctx,
+		cancel:  cancel,
+	}
+	w.start()
+	return w
 }
 
 // start 启动日志写入协程
@@ -135,16 +133,14 @@ func (w *OperLogWriter) Write(log *model.OperLog) {
 
 // Stop 停止日志写入器
 func (w *OperLogWriter) Stop() {
-	w.cancel()
-	w.wg.Wait()
-	close(w.logChan)
+	w.stopOnce.Do(func() {
+		w.cancel()
+		w.wg.Wait()
+	})
 }
 
 // OperationLog 操作日志中间件
-func OperationLog(db *gorm.DB, logger logging.Logger) echo.MiddlewareFunc {
-	// 获取日志写入器单例
-	writer := getOperLogWriter(db, logger)
-
+func OperationLog(writer *OperLogWriter) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			// 跳过操作日志相关的请求，避免递归记录
@@ -212,11 +208,14 @@ func readBody(c *echo.Context) []byte {
 	if c.Request().Method == http.MethodGet || c.Request().Method == http.MethodDelete {
 		return nil
 	}
-	body, err := io.ReadAll(c.Request().Body)
+	body, err := io.ReadAll(io.LimitReader(c.Request().Body, operLogBodyLimit+1))
 	if err != nil {
 		return nil
 	}
-	c.Request().Body = io.NopCloser(bytes.NewBuffer(body))
+	c.Request().Body = io.NopCloser(io.MultiReader(bytes.NewReader(body), c.Request().Body))
+	if len(body) > operLogBodyLimit {
+		return nil
+	}
 	return body
 }
 
@@ -229,9 +228,9 @@ func extractParams(c *echo.Context, body []byte) string {
 	}
 
 	if len(body) > 0 {
-		return string(body)
+		return sanitizeJSON(body)
 	}
-	return c.Request().URL.RawQuery
+	return sanitizeQuery(c.Request().URL.Query()).Encode()
 }
 
 // extractMultipartParams 提取 multipart/form-data 请求的参数摘要
@@ -247,6 +246,9 @@ func extractMultipartParams(c *echo.Context) string {
 	if c.Request().MultipartForm != nil && c.Request().MultipartForm.Value != nil {
 		for key, values := range c.Request().MultipartForm.Value {
 			for _, value := range values {
+				if isSensitiveField(key) {
+					value = redactedValue
+				}
 				params = append(params, fmt.Sprintf("%s=%s", key, value))
 			}
 		}
@@ -270,10 +272,87 @@ func extractMultipartParams(c *echo.Context) string {
 }
 
 func resolveStatus(c *echo.Context) (string, string) {
-	if value := c.Get("handler_error"); value == nil {
-		return "0", ""
+	if value := c.Get("handler_error"); value != nil {
+		return "1", fmt.Sprint(value)
 	}
-	return "1", fmt.Sprint(c.Get("handler_error"))
+	status := responseStatus(c.Response())
+	if status >= http.StatusBadRequest {
+		return "1", http.StatusText(status)
+	}
+	return "0", ""
+}
+
+func responseStatus(writer http.ResponseWriter) int {
+	for writer != nil {
+		if response, ok := writer.(*echo.Response); ok {
+			if response.Status == 0 {
+				return http.StatusOK
+			}
+			return response.Status
+		}
+		unwrapper, ok := writer.(interface{ Unwrap() http.ResponseWriter })
+		if !ok {
+			break
+		}
+		writer = unwrapper.Unwrap()
+	}
+	return http.StatusOK
+}
+
+func sanitizeJSON(body []byte) string {
+	var value any
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
+	if err := decoder.Decode(&value); err != nil {
+		return "[请求体不是有效 JSON]"
+	}
+	redactValue(value)
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return "[请求体脱敏失败]"
+	}
+	return string(encoded)
+}
+
+func redactValue(value any) {
+	switch current := value.(type) {
+	case map[string]any:
+		for key, child := range current {
+			if isSensitiveField(key) {
+				current[key] = redactedValue
+				continue
+			}
+			redactValue(child)
+		}
+	case []any:
+		for _, child := range current {
+			redactValue(child)
+		}
+	}
+}
+
+func sanitizeQuery(values url.Values) url.Values {
+	clean := make(url.Values, len(values))
+	for key, items := range values {
+		if isSensitiveField(key) {
+			clean[key] = []string{redactedValue}
+			continue
+		}
+		clean[key] = append([]string(nil), items...)
+	}
+	return clean
+}
+
+func isSensitiveField(field string) bool {
+	normalized := strings.NewReplacer("_", "", "-", "").Replace(strings.ToLower(field))
+	switch normalized {
+	case "password", "oldpassword", "newpassword", "accesstoken", "refreshtoken", "token",
+		"authorization", "secret", "clientsecret", "accesskey", "accesskeyid", "accesskeysecret",
+		"secretkey", "secretaccesskey", "code", "smscode":
+		return true
+	default:
+		return false
+	}
 }
 
 func getStringValue(c *echo.Context, key string) string {

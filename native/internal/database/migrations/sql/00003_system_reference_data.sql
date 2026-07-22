@@ -1,188 +1,35 @@
--- 系统管理 / 权限管理菜单初始化
--- 说明：
--- 1. s_menu.perms 仅用于前端权限判断，后端接口鉴权以 s_api_permission.code 和权限关联表为准。
--- 2. 本脚本可重复执行；已存在同名同父级菜单时会跳过插入。
-
-INSERT INTO s_menu (
-  id,
-  menu_name,
-  parent_id,
-  sort,
-  path,
-  component,
-  query,
-  is_frame,
-  is_cache,
-  menu_type,
-  visible,
-  status,
-  perms,
-  icon,
-  remark,
-  create_by,
-  update_by
+-- +goose Up
+INSERT INTO public.s_auth_client (
+  client_id, grant_type, device_type, status, timeout, active_timeout,
+  remark, create_by, update_by, created_time, updated_time
+) VALUES (
+  'web-admin', 'password,email,sms,wechat', 'web', 0, 604800, 1800,
+  '后台管理客户端', 0, 0, NOW(), NOW()
 )
-SELECT
-  COALESCE((SELECT MAX(id) FROM s_menu), 0) + 1,
-  '权限管理',
-  system_menu.id,
-  4,
-  'api-permission',
-  'system/apiPermission/index',
-  '',
-  0,
-  0,
-  1,
-  0,
-  0,
-  'api_permission.read',
-  'api',
-  'API 权限管理页面',
-  1,
-  1
-FROM s_menu system_menu
-WHERE system_menu.menu_name = '系统管理'
-  AND system_menu.parent_id = 0
-  AND NOT EXISTS (
-    SELECT 1
-    FROM s_menu existing
-    WHERE existing.menu_name = '权限管理'
-      AND existing.parent_id = system_menu.id
-  );
+ON CONFLICT (client_id) DO UPDATE SET
+  grant_type = EXCLUDED.grant_type,
+  device_type = EXCLUDED.device_type,
+  status = EXCLUDED.status,
+  timeout = EXCLUDED.timeout,
+  active_timeout = EXCLUDED.active_timeout,
+  remark = EXCLUDED.remark,
+  updated_time = NOW();
 
-INSERT INTO s_menu (
-  id,
-  menu_name,
-  parent_id,
-  sort,
-  path,
-  component,
-  query,
-  is_frame,
-  is_cache,
-  menu_type,
-  visible,
-  status,
-  perms,
-  icon,
-  remark,
-  create_by,
-  update_by
-)
-SELECT
-  COALESCE((SELECT MAX(id) FROM s_menu), 0) + ROW_NUMBER() OVER (ORDER BY seed.parent_id, seed.sort),
-  seed.*
-FROM (
-  SELECT
-    '新增权限' AS menu_name,
-    permission_menu.id AS parent_id,
-    1 AS sort,
-    '' AS path,
-    '' AS component,
-    '' AS query,
-    0 AS is_frame,
-    0 AS is_cache,
-    2 AS menu_type,
-    1 AS visible,
-    0 AS status,
-    'api_permission.create' AS perms,
-    'plus' AS icon,
-    'API 权限新增按钮' AS remark,
-    1 AS create_by,
-    1 AS update_by
-  FROM s_menu permission_menu
-  INNER JOIN s_menu system_menu ON system_menu.id = permission_menu.parent_id
-  WHERE system_menu.menu_name = '系统管理'
-    AND system_menu.parent_id = 0
-    AND permission_menu.menu_name = '权限管理'
-
-  UNION ALL
-
-  SELECT
-    '编辑权限',
-    permission_menu.id,
-    2,
-    '',
-    '',
-    '',
-    0,
-    0,
-    2,
-    1,
-    0,
-    'api_permission.update',
-    'form',
-    'API 权限编辑按钮',
-    1,
-    1
-  FROM s_menu permission_menu
-  INNER JOIN s_menu system_menu ON system_menu.id = permission_menu.parent_id
-  WHERE system_menu.menu_name = '系统管理'
-    AND system_menu.parent_id = 0
-    AND permission_menu.menu_name = '权限管理'
-
-  UNION ALL
-
-  SELECT
-    '删除权限',
-    permission_menu.id,
-    3,
-    '',
-    '',
-    '',
-    0,
-    0,
-    2,
-    1,
-    0,
-    'api_permission.delete',
-    'delete',
-    'API 权限删除按钮',
-    1,
-    1
-  FROM s_menu permission_menu
-  INNER JOIN s_menu system_menu ON system_menu.id = permission_menu.parent_id
-  WHERE system_menu.menu_name = '系统管理'
-    AND system_menu.parent_id = 0
-    AND permission_menu.menu_name = '权限管理'
-
-  UNION ALL
-
-  SELECT
-    '分配API权限',
-    permission_menu.id,
-    4,
-    '',
-    '',
-    '',
-    0,
-    0,
-    2,
-    1,
-    0,
-    'api_permission.assign',
-    'safety',
-    '角色和用户 API 权限分配按钮',
-    1,
-    1
-  FROM s_menu permission_menu
-  INNER JOIN s_menu system_menu ON system_menu.id = permission_menu.parent_id
-  WHERE system_menu.menu_name = '系统管理'
-    AND system_menu.parent_id = 0
-    AND permission_menu.menu_name = '权限管理'
-) seed
-WHERE NOT EXISTS (
-  SELECT 1
-  FROM s_menu existing
-  WHERE existing.parent_id = seed.parent_id
-    AND existing.perms = seed.perms
-);
-
--- API 权限初始化
--- 规则：
--- 1. 每个业务模块都有一个通配符节点，例如 user.*，角色/用户授权勾选模块节点时写入通配符即可覆盖子权限。
--- 2. 具体权限 code 必须和 native/internal/constants/permission.go 以及路由中间件使用的 code 保持一致。
--- 3. method/path 仅作为管理界面展示和维护参考，真正后端鉴权依据是 code + action。
+INSERT INTO public.s_role (
+  id, role_key, role_name, sort, status, data_scope, is_system, remark,
+  create_by, update_by, created_time, updated_time
+) VALUES
+  (1880159541355577349, 'super_admin', '超级管理员', 0, 0, 1, TRUE, '系统内置超级管理员', 0, 0, NOW(), NOW()),
+  (1880159541355577350, 'admin', '管理员', 1, 0, 1, TRUE, '系统内置管理员', 0, 0, NOW(), NOW()),
+  (1880159541355577351, 'user', '普通用户', 2, 0, 5, FALSE, '系统内置普通用户', 0, 0, NOW(), NOW())
+ON CONFLICT (role_key) DO UPDATE SET
+  role_name = EXCLUDED.role_name,
+  sort = EXCLUDED.sort,
+  status = EXCLUDED.status,
+  data_scope = EXCLUDED.data_scope,
+  is_system = EXCLUDED.is_system,
+  remark = EXCLUDED.remark,
+  updated_time = NOW();
 
 WITH seed (
   seq,
@@ -264,8 +111,8 @@ WITH seed (
 
     (11000, '', 'attachment', 'attachment.*', '附件管理', 0, '*', '*', '/api/v1/attachment/*', 110, 0, '附件管理模块全部 API 权限'),
     (11010, 'attachment.*', 'attachment', 'attachment.read', '附件查询', 2, 'read', 'GET,POST', '/api/v1/attachment/page,/api/v1/attachment/business,/api/v1/attachment/:attachmentId,/api/v1/attachment/:attachmentId/url', 10, 0, '附件列表、详情、业务附件和访问 URL 查询'),
-    (11020, 'attachment.*', 'attachment', 'attachment.create', '附件新增', 2, 'write', 'POST', '/api/v1/attachment/upload-file', 20, 0, '兼容附件新增权限，实际上传使用 attachment.upload'),
-    (11030, 'attachment.*', 'attachment', 'attachment.update', '附件更新', 2, 'write', 'POST', '/api/v1/attachment/:attachmentId/bind', 30, 0, '兼容附件更新权限，实际绑定使用 attachment.bind'),
+    (11020, 'attachment.*', 'attachment', 'attachment.create', '附件新增', 2, 'write', 'POST', '/api/v1/attachment/upload-file', 20, 0, '附件新增权限'),
+    (11030, 'attachment.*', 'attachment', 'attachment.update', '附件更新', 2, 'write', 'POST', '/api/v1/attachment/:attachmentId/bind', 30, 0, '附件更新权限'),
     (11040, 'attachment.*', 'attachment', 'attachment.delete', '附件删除', 2, 'write', 'DELETE', '/api/v1/attachment/:attachmentId', 40, 0, '删除附件'),
     (11050, 'attachment.*', 'attachment', 'attachment.upload', '附件上传', 2, 'write', 'POST', '/api/v1/attachment/upload-file', 50, 0, '上传附件文件'),
     (11060, 'attachment.*', 'attachment', 'attachment.download', '附件下载', 2, 'write', 'GET', '/api/v1/attachment/:attachmentId/download', 60, 0, '下载附件文件'),
@@ -334,3 +181,8 @@ ON CONFLICT (code) DO UPDATE SET
   remark = EXCLUDED.remark,
   update_by = EXCLUDED.update_by,
   updated_time = NOW();
+
+-- +goose Down
+DELETE FROM public.s_api_permission WHERE module IN ('user', 'role', 'menu', 'api_permission', 'org', 'dict', 'config', 'login_log', 'oper_log', 'storage_env', 'attachment');
+DELETE FROM public.s_role WHERE role_key IN ('super_admin', 'admin', 'user');
+DELETE FROM public.s_auth_client WHERE client_id = 'web-admin';

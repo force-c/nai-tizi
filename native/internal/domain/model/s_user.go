@@ -8,25 +8,25 @@ import (
 
 // User 系统用户
 type User struct {
-	ID          int64           `gorm:"column:id;type:bigint;primaryKey;autoIncrement:false" autogen:"int64" json:"id"` // 用户ID（使用分布式ID）
-	UserName    string          `gorm:"column:user_name;type:varchar(64);uniqueIndex;not null" json:"userName"`         // 用户名（登录账号）
-	NickName    string          `gorm:"column:nick_name;type:varchar(64)" json:"nickName"`                              // 昵称（显示名称）
-	UserType    int32           `gorm:"column:user_type;type:smallint;default:0" json:"userType"`                       // 用户类型：0系统用户 1微信用户 2APP用户
-	OrgID       int64           `gorm:"column:org_id;type:bigint;default:0;index" json:"orgId"`                         // 组织ID
-	Email       string          `gorm:"column:email;type:varchar(128);index" json:"email"`                              // 邮箱
-	Phonenumber string          `gorm:"column:phonenumber;type:varchar(32);index" json:"phonenumber"`                   // 手机号
-	Sex         int32           `gorm:"column:sex;type:smallint;default:2" json:"sex"`                                  // 性别：0男 1女 2未知
-	Avatar      string          `gorm:"column:avatar;type:varchar(512)" json:"avatar"`                                  // 头像URL
-	Password    string          `gorm:"column:password;type:varchar(255)" json:"-"`                                     // 密码（加密）
-	Status      int32           `gorm:"column:status;type:smallint;default:0" json:"status"`                            // 状态：0正常 1停用
-	Sort        int64           `gorm:"column:sort;type:bigint;default:0" json:"sort"`                                  // 排序字段
-	LoginIp     string          `gorm:"column:login_ip;type:varchar(64)" json:"loginIp"`                                // 最后登录IP
-	LoginDate   int64           `gorm:"column:login_date;type:bigint" json:"loginDate"`                                 // 最后登录时间（时间戳）
-	OpenId      string          `gorm:"column:open_id;type:varchar(128);index" json:"openId"`                           // 微信OpenID
-	UnionId     string          `gorm:"column:union_id;type:varchar(128);index" json:"unionId"`                         // 微信UnionID
-	Remark      string          `gorm:"column:remark;type:varchar(500)" json:"remark"`                                  // 备注
-	CreateBy    int64           `gorm:"column:create_by;type:bigint" json:"createBy"`                                   // 创建人
-	UpdateBy    int64           `gorm:"column:update_by;type:bigint" json:"updateBy"`                                   // 更新人
+	ID          int64           `gorm:"column:id;type:bigint;primaryKey;autoIncrement:false" autogen:"int64" json:"id"`                                    // 用户ID（使用分布式ID）
+	UserName    string          `gorm:"column:user_name;type:varchar(64);uniqueIndex;not null" json:"userName"`                                            // 用户名（登录账号）
+	NickName    string          `gorm:"column:nick_name;type:varchar(64)" json:"nickName"`                                                                 // 昵称（显示名称）
+	UserType    int32           `gorm:"column:user_type;type:smallint;default:0" json:"userType"`                                                          // 用户类型：0系统用户 1微信用户 2APP用户
+	OrgID       int64           `gorm:"column:org_id;type:bigint;default:0;index" json:"orgId"`                                                            // 组织ID
+	Email       string          `gorm:"column:email;type:varchar(128);uniqueIndex:idx_s_user_email,where:email <> ''" json:"email"`                        // 邮箱
+	Phonenumber string          `gorm:"column:phonenumber;type:varchar(32);uniqueIndex:idx_s_user_phonenumber,where:phonenumber <> ''" json:"phonenumber"` // 手机号
+	Sex         int32           `gorm:"column:sex;type:smallint;default:2" json:"sex"`                                                                     // 性别：0男 1女 2未知
+	Avatar      string          `gorm:"column:avatar;type:varchar(512)" json:"avatar"`                                                                     // 头像URL
+	Password    string          `gorm:"column:password;type:varchar(255)" json:"-"`                                                                        // 密码（加密）
+	Status      int32           `gorm:"column:status;type:smallint;default:0" json:"status"`                                                               // 状态：0正常 1停用
+	Sort        int64           `gorm:"column:sort;type:bigint;default:0" json:"sort"`                                                                     // 排序字段
+	LoginIp     string          `gorm:"column:login_ip;type:varchar(64)" json:"loginIp"`                                                                   // 最后登录IP
+	LoginDate   int64           `gorm:"column:login_date;type:bigint" json:"loginDate"`                                                                    // 最后登录时间（时间戳）
+	OpenId      string          `gorm:"column:open_id;type:varchar(128);uniqueIndex:idx_s_user_open_id,where:open_id <> ''" json:"openId"`                 // 微信OpenID
+	UnionId     string          `gorm:"column:union_id;type:varchar(128);uniqueIndex:idx_s_user_union_id,where:union_id <> ''" json:"unionId"`             // 微信UnionID
+	Remark      string          `gorm:"column:remark;type:varchar(500)" json:"remark"`                                                                     // 备注
+	CreateBy    int64           `gorm:"column:create_by;type:bigint" json:"createBy"`                                                                      // 创建人
+	UpdateBy    int64           `gorm:"column:update_by;type:bigint" json:"updateBy"`                                                                      // 更新人
 	CreatedTime utils.LocalTime `gorm:"column:created_time;type:timestamptz;autoCreateTime" json:"createdTime"`
 	UpdatedTime utils.LocalTime `gorm:"column:updated_time;type:timestamptz;autoUpdateTime" json:"updatedTime"`
 }

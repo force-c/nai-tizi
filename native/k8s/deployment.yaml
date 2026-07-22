@@ -14,81 +14,62 @@ spec:
       labels:
         app: quick-admin-api
     spec:
+      terminationGracePeriodSeconds: 40
       containers:
-      - name: api
-        image: ghcr.io/your-org/quick-admin:latest
-        ports:
-        - containerPort: 8080
-          name: http
-        env:
-        - name: ENV
-          value: "production"
-        - name: DB_HOST
-          valueFrom:
-            configMapKeyRef:
-              name: quick-admin-config
-              key: db_host
-        - name: DB_PORT
-          valueFrom:
-            configMapKeyRef:
-              name: quick-admin-config
-              key: db_port
-        - name: DB_USER
-          valueFrom:
-            secretKeyRef:
-              name: quick-admin-secret
-              key: db_user
-        - name: DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: quick-admin-secret
-              key: db_password
-        - name: DB_NAME
-          valueFrom:
-            configMapKeyRef:
-              name: quick-admin-config
-              key: db_name
-        - name: REDIS_HOST
-          valueFrom:
-            configMapKeyRef:
-              name: quick-admin-config
-              key: redis_host
-        - name: REDIS_PORT
-          valueFrom:
-            configMapKeyRef:
-              name: quick-admin-config
-              key: redis_port
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: quick-admin-secret
-              key: jwt_secret
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "500m"
-          limits:
-            memory: "1Gi"
-            cpu: "1000m"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 3
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 10
-          periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 3
-        volumeMounts:
-        - name: logs
-          mountPath: /app/logs
-      volumes:
-      - name: logs
-        emptyDir: {}
+        - name: api
+          image: ghcr.io/your-org/quick-admin:0.1.0
+          ports:
+            - containerPort: 9009
+              name: http
+          env:
+            - name: QUICK_ADMIN_APP_ENV
+              value: prod
+            - name: QUICK_ADMIN_SERVER_PORT
+              value: "9009"
+            - name: QUICK_ADMIN_DATABASE_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: quick-admin-secret
+                  key: database-dsn
+            - name: QUICK_ADMIN_REDIS_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: quick-admin-config
+                  key: redis-addr
+            - name: QUICK_ADMIN_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: quick-admin-secret
+                  key: redis-password
+            - name: QUICK_ADMIN_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: quick-admin-secret
+                  key: jwt-secret
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 250m
+            limits:
+              memory: 1Gi
+              cpu: "1"
+          startupProbe:
+            httpGet:
+              path: /health/startup
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3

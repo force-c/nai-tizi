@@ -1,8 +1,6 @@
 package model
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"strings"
 
 	"github.com/gcc798/quick.admin/internal/utils"
@@ -13,8 +11,6 @@ import (
 // AuthClient 客户端配置表
 type AuthClient struct {
 	ClientId      string          `gorm:"column:client_id;type:varchar(64);primaryKey;comment:客户端ID" json:"clientId"`
-	ClientKey     string          `gorm:"column:client_key;type:varchar(32);uniqueIndex;not null;comment:客户端Key" json:"clientKey"`
-	ClientSecret  string          `gorm:"column:client_secret;type:varchar(255);not null;comment:客户端秘钥" json:"clientSecret"`
 	GrantType     string          `gorm:"column:grant_type;type:varchar(255);comment:授权类型(逗号分隔)" json:"grantType"`
 	DeviceType    string          `gorm:"column:device_type;type:varchar(32);comment:设备类型" json:"deviceType"`
 	Status        int             `gorm:"column:status;type:smallint;default:0;comment:状态(0正常 1停用)" json:"status"`
@@ -32,19 +28,8 @@ func (*AuthClient) TableName() string {
 	return "s_auth_client"
 }
 
-// GenerateClientId 生成客户端ID (MD5(clientKey + clientSecret))
-func GenerateClientId(clientKey, clientSecret string) string {
-	data := clientKey + clientSecret
-	hash := md5.Sum([]byte(data))
-	return hex.EncodeToString(hash[:])
-}
-
-// BeforeCreate 创建前钩子 - 自动生成clientId
-func (c *AuthClient) BeforeCreate(tx *gorm.DB) error {
-	if c.ClientId == "" {
-		c.ClientId = GenerateClientId(c.ClientKey, c.ClientSecret)
-	}
-	// 设置默认值
+// BeforeCreate 设置客户端超时默认值。客户端 ID 必须由调用方显式提供。
+func (c *AuthClient) BeforeCreate(_ *gorm.DB) error {
 	if c.Timeout == 0 {
 		c.Timeout = 604800 // 7天
 	}
@@ -83,30 +68,6 @@ func (*AuthClient) FindByClientId(db *gorm.DB, clientId string) (*AuthClient, er
 	return &client, nil
 }
 
-// FindByClientKey 根据clientKey查询
-func (*AuthClient) FindByClientKey(db *gorm.DB, clientKey string) (*AuthClient, error) {
-	var client AuthClient
-	err := db.Where("client_key = ?", clientKey).First(&client).Error
-	if err != nil {
-		return nil, err
-	}
-	return &client, nil
-}
-
-// CheckClientKeyExists 检查clientKey是否存在
-func (*AuthClient) CheckClientKeyExists(db *gorm.DB, clientKey string) (bool, error) {
-	var count int64
-	err := db.Model(&AuthClient{}).Where("client_key = ?", clientKey).Count(&count).Error
-	return count > 0, err
-}
-
-// CheckClientKeyExistsExcludingSelf 检查clientKey是否被其他客户端占用
-func (*AuthClient) CheckClientKeyExistsExcludingSelf(db *gorm.DB, clientId, clientKey string) (bool, error) {
-	var count int64
-	err := db.Model(&AuthClient{}).Where("client_key = ? AND client_id != ?", clientKey, clientId).Count(&count).Error
-	return count > 0, err
-}
-
 // Create 创建客户端
 func (c *AuthClient) Create(db *gorm.DB) error {
 	return db.Create(c).Error
@@ -123,7 +84,7 @@ func (*AuthClient) Delete(db *gorm.DB, clientId string) error {
 }
 
 // List 分页查询客户端列表
-func (*AuthClient) List(db *gorm.DB, pageNum, pageSize int, status *int, clientKey string) ([]AuthClient, int64, error) {
+func (*AuthClient) List(db *gorm.DB, pageNum, pageSize int, status *int, clientID string) ([]AuthClient, int64, error) {
 	var clients []AuthClient
 	var total int64
 
@@ -133,8 +94,8 @@ func (*AuthClient) List(db *gorm.DB, pageNum, pageSize int, status *int, clientK
 	if status != nil {
 		query = query.Where("status = ?", *status)
 	}
-	if clientKey != "" {
-		query = query.Where("client_key LIKE ?", "%"+clientKey+"%")
+	if clientID != "" {
+		query = query.Where("client_id LIKE ?", "%"+clientID+"%")
 	}
 
 	// 统计总数
@@ -147,9 +108,4 @@ func (*AuthClient) List(db *gorm.DB, pageNum, pageSize int, status *int, clientK
 	err := query.Offset(offset).Limit(pageSize).Order("created_time DESC").Find(&clients).Error
 
 	return clients, total, err
-}
-
-// VerifySecret 验证客户端密钥
-func (c *AuthClient) VerifySecret(secret string) bool {
-	return c.ClientSecret == secret
 }

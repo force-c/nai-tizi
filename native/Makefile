@@ -1,4 +1,4 @@
-.PHONY: help swagger swagger-fmt run build test clean
+.PHONY: help swagger swagger-check swagger-fmt run build test test-race vet docker-build verify ci clean
 
 # 默认目标
 help:
@@ -8,6 +8,12 @@ help:
 	@echo "  make run          - 运行服务（自动生成文档）"
 	@echo "  make build        - 编译项目"
 	@echo "  make test         - 运行测试"
+	@echo "  make test-race    - 运行竞态检测"
+	@echo "  make vet          - 运行 Go 静态检查"
+	@echo "  make swagger-check - 检查 Swagger 是否为最新"
+	@echo "  make docker-build - 构建 Docker 镜像"
+	@echo "  make verify       - 执行本地完整质量检查"
+	@echo "  make ci           - 执行测试、vet、race、Swagger freshness 和 Docker build"
 	@echo "  make clean        - 清理生成的文件"
 
 # 生成 Swagger 文档
@@ -18,6 +24,12 @@ swagger:
 	@echo "   - swagger.json"
 	@echo "   - swagger.yaml"
 	@echo "   - docs.go"
+
+swagger-check:
+	@tmp_dir=$$(mktemp -d); \
+	trap 'rm -rf "$$tmp_dir"' EXIT; \
+	swag init -g cmd/api/main.go -o "$$tmp_dir/swagger" --parseDependency --parseInternal >/dev/null; \
+	diff -ru docs/swagger "$$tmp_dir/swagger"
 
 # 格式化 Swagger 注释
 swagger-fmt:
@@ -40,10 +52,22 @@ test:
 	@echo "正在运行测试..."
 	@go test -v ./...
 
+test-race:
+	@go test -race ./...
+
+vet:
+	@go vet ./...
+
+docker-build:
+	@docker build -f dockerfile/Dockerfile -t quick-admin-native:verify .
+
+verify: test vet test-race swagger-check
+
+ci: verify docker-build
+
 # 清理生成的文件
 clean:
 	@echo "正在清理..."
-	@rm -rf docs/swagger/
 	@rm -rf bin/
 	@echo "✅ 清理完成"
 

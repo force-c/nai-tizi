@@ -1,1 +1,1 @@
-export const DEFAULT_CLIENT_ID = 'e10adc3949ba59abbe56e057f20f883e';
+export const DEFAULT_CLIENT_ID = 'web-admin';

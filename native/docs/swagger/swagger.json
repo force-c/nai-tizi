@@ -4305,7 +4305,7 @@
         },
         "/auth/refresh": {
             "post": {
-                "description": "使用 RefreshToken 获取新的 AccessToken 和 RefreshToken（轮换机制）",
+                "description": "Refresh Token 单次使用，刷新后立即轮换",
                 "consumes": [
                     "application/json"
                 ],
@@ -4318,7 +4318,7 @@
                 "summary": "刷新访问令牌",
                 "parameters": [
                     {
-                        "description": "刷新令牌请求参数",
+                        "description": "刷新令牌请求",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -4347,13 +4347,13 @@
                         }
                     },
                     "400": {
-                        "description": "参数错误",
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/github_com_gcc798_quick_admin_internal_domain_response.Response"
                         }
                     },
                     "401": {
-                        "description": "RefreshToken 无效或已过期",
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/github_com_gcc798_quick_admin_internal_domain_response.Response"
                         }
@@ -4634,7 +4634,7 @@
         },
         "/login": {
             "post": {
-                "description": "支持多种登录方式：密码登录(password)、邮箱验证码(email)、微信小程序(xcx)",
+                "description": "支持密码、邮箱验证码、短信验证码和纯微信登录",
                 "consumes": [
                     "application/json"
                 ],
@@ -4647,7 +4647,7 @@
                 "summary": "用户登录",
                 "parameters": [
                     {
-                        "description": "登录请求参数",
+                        "description": "登录请求",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -4676,13 +4676,13 @@
                         }
                     },
                     "400": {
-                        "description": "参数错误",
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/github_com_gcc798_quick_admin_internal_domain_response.Response"
                         }
                     },
                     "401": {
-                        "description": "认证失败",
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/github_com_gcc798_quick_admin_internal_domain_response.Response"
                         }
@@ -4696,13 +4696,6 @@
                     {
                         "Bearer": []
                     }
-                ],
-                "description": "使当前用户的 RefreshToken 失效，AccessToken 会在过期后自动失效",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
                 ],
                 "tags": [
                     "认证"
@@ -5535,18 +5528,13 @@
                 "grantType"
             ],
             "properties": {
-                "appid": {
-                    "description": "小程序ID",
-                    "type": "string",
-                    "example": "wx-app-id"
-                },
                 "clientId": {
                     "description": "客户端认证",
                     "type": "string",
-                    "example": "client-id"
+                    "example": "web-admin"
                 },
                 "code": {
-                    "description": "验证码（email/xcx 必填）",
+                    "description": "验证码（email/sms 必填）",
                     "type": "string",
                     "example": "123456"
                 },
@@ -5556,29 +5544,25 @@
                     "example": "admin@example.com"
                 },
                 "grantType": {
-                    "description": "授权类型：password-密码登录, email-邮箱验证码, xcx-微信小程序",
+                    "description": "授权类型",
                     "type": "string",
                     "enum": [
                         "password",
                         "email",
-                        "xcx"
+                        "sms",
+                        "wechat"
                     ],
                     "example": "password"
                 },
                 "password": {
                     "description": "密码（password 必填）",
                     "type": "string",
-                    "example": "admin123"
+                    "example": "user-password"
                 },
                 "phonenumber": {
-                    "description": "手机号（xcx 必填）",
+                    "description": "手机号（sms 必填）",
                     "type": "string",
                     "example": "13800138000"
-                },
-                "smsCode": {
-                    "description": "短信验证码（xcx/sms 必填）",
-                    "type": "string",
-                    "example": "123456"
                 },
                 "username": {
                     "description": "用户凭证（根据 grantType 选填）",
@@ -5591,7 +5575,7 @@
                     "example": "captcha-uuid-12345"
                 },
                 "wxCode": {
-                    "description": "微信code（xcx 必填）",
+                    "description": "微信 code（wechat 必填）",
                     "type": "string",
                     "example": "wx-code-from-wechat"
                 }
@@ -6440,12 +6424,7 @@
                 "client_id": {
                     "description": "客户端ID",
                     "type": "string",
-                    "example": "client-id"
-                },
-                "expire_in": {
-                    "description": "AccessToken 过期时间（秒）",
-                    "type": "integer",
-                    "example": 1800
+                    "example": "web-admin"
                 },
                 "expires_in": {
                     "description": "AccessToken 过期时间（秒）",
@@ -6456,11 +6435,6 @@
                     "description": "微信OpenID",
                     "type": "string",
                     "example": "openid"
-                },
-                "refresh_expire_in": {
-                    "description": "RefreshToken 过期时间（秒）",
-                    "type": "integer",
-                    "example": 604800
                 },
                 "refresh_expires_in": {
                     "description": "RefreshToken 过期时间（秒）",
@@ -6571,7 +6545,7 @@
                 "clientId": {
                     "description": "客户端ID",
                     "type": "string",
-                    "example": "client-id"
+                    "example": "web-admin"
                 },
                 "refreshToken": {
                     "description": "刷新令牌",

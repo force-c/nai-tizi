@@ -1,28 +1,28 @@
-env: "prod"
 server:
   port: 9009
 
 database:
-  dsn: "host=127.0.0.1 user=postgres password=your-password dbname=quick-admin port=5432 sslmode=disable TimeZone=Asia/Shanghai"
+  dsn: ""
   maxOpenConns: 100
   maxIdleConns: 10
   connMaxLifetimeMinutes: 60
   slowThreshold: 500
-  autoMigrate: false
 
 redis:
-  addr: "127.0.0.1:6379"
+  addr: ""
   password: ""
   db: 0
 
 jwt:
-  secret: "e2ecf6d94b7cd88bc00e79a3f127677817543db61584f5d1a36ed5e574af4420"
+  secret: ""
   expire: 7200
 
 auth:
   tokenHeader: "Authorization"
   allowConcurrent: false
-  shareToken: false
+
+cors:
+  enabled: false
 
 captcha:
   image:
@@ -35,13 +35,13 @@ captcha:
     enabled: false
     length: 6
     expire: 300
-    template: "SMS_CODE_TEMPLATE"
-    provider: "aliyun"
+    template: ""
+    provider: ""
   email:
     enabled: false
     length: 6
     expire: 300
-    template: "EMAIL_CODE_TEMPLATE"
+    template: ""
 
 wechat:
   enabled: false
@@ -52,7 +52,7 @@ wechat:
 mqtt:
   enabled: false
   broker: ""
-  clientId: "NTZ-server"
+  clientId: ""
   username: ""
   password: ""
   qos: 1
@@ -66,7 +66,15 @@ sms:
   accessKeyId: ""
   accessKeySecret: ""
   signName: ""
-  templateCode: "SMS_CODE_TEMPLATE"
+  templateCode: ""
+
+email:
+  enabled: false
+  host: ""
+  port: 0
+  username: ""
+  password: ""
+  from: ""
 
 s3:
   enabled: false
@@ -74,9 +82,9 @@ s3:
   accessKeyId: ""
   secretAccessKey: ""
   region: "auto"
-  bucket: "nati-tizi"
-  useSSL: false
-  forcePathStyle: true
+  bucket: ""
+  useSSL: true
+  forcePathStyle: false
 
 scheduler:
   enabled: true

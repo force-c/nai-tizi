@@ -8,9 +8,7 @@ type LoginResponse struct {
 	RefreshToken     string    `json:"refresh_token" example:"dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4="`       // 刷新令牌（长期有效）
 	ExpiresIn        int64     `json:"expires_in" example:"1800"`                                      // AccessToken 过期时间（秒）
 	RefreshExpiresIn int64     `json:"refresh_expires_in" example:"604800"`                            // RefreshToken 过期时间（秒）
-	ExpireIn         int64     `json:"expire_in,omitempty" example:"1800"`                             // AccessToken 过期时间（秒）
-	RefreshExpireIn  int64     `json:"refresh_expire_in,omitempty" example:"604800"`                   // RefreshToken 过期时间（秒）
-	ClientID         string    `json:"client_id,omitempty" example:"client-id"`                        // 客户端ID
+	ClientID         string    `json:"client_id,omitempty" example:"web-admin"`                        // 客户端ID
 	Scope            string    `json:"scope,omitempty" example:""`                                     // 令牌权限
 	OpenID           string    `json:"openId,omitempty" example:"openid"`                              // 微信OpenID
 	UserInfo         *UserInfo `json:"user_info"`                                                      // 用户信息
@@ -21,7 +19,7 @@ type LoginResponse struct {
 //	@Description	使用 RefreshToken 刷新 AccessToken 的请求参数
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refreshToken" binding:"required" example:"dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4="` // 刷新令牌
-	ClientID     string `json:"clientId" binding:"required" example:"client-id"`                            // 客户端ID
+	ClientID     string `json:"clientId" binding:"required" example:"web-admin"`                            // 客户端ID
 }
 
 // RefreshTokenResponse 刷新令牌响应
