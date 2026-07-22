@@ -3,7 +3,7 @@ package model
 import (
 	"time"
 
-	"github.com/gcc798/quick.admin/internal/utils"
+	"github.com/gcc798/lightning/internal/utils"
 	"gorm.io/gorm"
 )
 

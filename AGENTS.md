@@ -22,6 +22,7 @@
 5. 只要 `web-react` 能和 `native` 正常交互，`kratos` 和 `gozero` 也必须提供兼容的 HTTP 契约。
 6. 修改生成文件时优先使用对应框架命令重新生成，不要只做字符串硬改。
 7. 本仓库是全新的试验工程，任何改动默认不考虑旧代码、旧配置、旧接口或旧数据的向后兼容；只有开发者明确提出兼容要求时，才实现兼容逻辑。
+8. `native/` 是不依赖完整开源微服务框架的渐进式微服务工程：从模块化单体起步，按真实扩容、发布和隔离需求通过新增 `application/<service>` 组合既有 Module；每个目录拥有该服务的入口与领域代码，不得为了微服务而提前拆分，也不得让未来拆服务必须推翻重写核心业务。
 
 ## 根目录结构
 
@@ -42,18 +43,21 @@ quick.admin/
 
 `native/` 是从零手搓的 Go 后端实现，主要用于确认业务事实。
 
-常见入口：
+常见入口与边界：
 
-- `native/cmd/api/main.go`：HTTP API 启动入口。
-- `native/internal/router/`：路由注册。
-- `native/internal/controller/`：HTTP 控制器。
-- `native/internal/service/`：业务逻辑。
+- `native/application/api/`：HTTP API 入口及其 router、controller、service、DTO 和中间件。
+- `native/application/scheduler/`：Scheduler 入口与异步 Job。
+- `native/application/usermgr/`：管理员维护工具。
 - `native/internal/domain/model/`：GORM 模型。
-- `native/internal/domain/request/`：请求 DTO。
-- `native/internal/domain/response/`：响应 DTO。
-- `native/internal/database/`：数据库初始化和 GORM 插件。
-- `native/pkg/`：可复用基础能力。
-- `native/docs/swagger/`：Swagger 生成文件，`cmd/api/main.go` 会导入，不能随意删除。
+- `native/application/api/migrations/`：API 所拥有数据库 Schema 的 Goose 迁移及版本化 SQL；Scheduler 不执行迁移。
+- `native/internal/database/`：多个应用共享的数据库连接与 GORM 插件，不负责执行迁移。
+- `native/internal/`：多个应用共享、但通过 Go `internal` 规则禁止仓库外导入的基础能力。
+- `native/application/api/openapi/`：API 自有的 Swagger 生成文件，`application/api/main.go` 会导入。
+
+API 与 Scheduler 各自在服务目录保存 `conf.example.yaml` 和 `zaplogger.example.yaml`。真实的 `conf.dev.yaml`、`conf.prod.yaml`、`zaplogger.dev.yaml`、`zaplogger.prod.yaml` 不纳入 Git，使用 `make init-config` 初始化。
+每个服务的 YAML 只声明自身实际依赖；当前 API 配置完整基础设施，Scheduler 配置只包含数据库，不得为了复用配置结构加入未使用字段。
+
+`native` 不使用顶层 `pkg/` 存放普通共享代码。仅当某个包明确作为稳定 API 供当前 Go Module 之外的工程导入时，才考虑新增 `pkg/`；仓库内多应用共享代码应保留在 `internal/`。
 
 常用命令：
 
@@ -138,7 +142,7 @@ pnpm build
 - 若改动会影响前端接口，优先确认是否破坏了 `native` 契约；不要让 `web-react` 为不同后端实现做特殊兼容。
 - 每个 Go 子工程单独运行测试：`native`、`kratos`、`gozero` 各自都有自己的 `go.mod`。
 - 不要把 `native`、`kratos`、`gozero` 当成互相引用的包；它们是同一业务的不同实现。
-- 不要删除 `native/docs/swagger/`，除非同时调整 Swagger 导入和生成流程。
+- 不要手工修改 `native/application/api/openapi/`，应通过 `make swagger` 重新生成。
 
 ## 快速判断应该看哪里
 

@@ -2,27 +2,26 @@ package container
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	stdlog "log"
 	"os"
+	"strings"
+	"sync"
 	"time"
 
-	"github.com/gcc798/quick.admin/internal/config"
-	"github.com/gcc798/quick.admin/internal/database"
-	"github.com/gcc798/quick.admin/internal/database/migrations"
-	"github.com/gcc798/quick.admin/internal/logger"
-	"github.com/gcc798/quick.admin/internal/messaging/websocket"
-	"github.com/gcc798/quick.admin/pkg/captcha"
-	"github.com/gcc798/quick.admin/pkg/jwt"
-	"github.com/gcc798/quick.admin/pkg/mqtt"
-	"github.com/gcc798/quick.admin/pkg/rabbitmq"
-	redisclient "github.com/gcc798/quick.admin/pkg/redis"
-	"github.com/gcc798/quick.admin/pkg/s3"
-	"github.com/gcc798/quick.admin/pkg/scheduler"
-	"github.com/gcc798/quick.admin/pkg/storage"
-	"github.com/gcc798/quick.admin/pkg/thirdparty/email"
-	"github.com/gcc798/quick.admin/pkg/thirdparty/sms"
-	"github.com/gcc798/quick.admin/pkg/thirdparty/wechat"
+	"github.com/gcc798/lightning/internal/config"
+	"github.com/gcc798/lightning/internal/database"
+	"github.com/gcc798/lightning/internal/logger"
+	"github.com/gcc798/lightning/internal/modules"
+	"github.com/gcc798/lightning/internal/platform/jwt"
+	"github.com/gcc798/lightning/internal/platform/rabbitmq"
+	redisclient "github.com/gcc798/lightning/internal/platform/redis"
+	"github.com/gcc798/lightning/internal/platform/redislock"
+	"github.com/gcc798/lightning/internal/platform/s3"
+	"github.com/gcc798/lightning/internal/platform/storage"
+	"github.com/gcc798/lightning/internal/platform/websocket"
+	"github.com/gcc798/lightning/internal/runtimeconfig"
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -40,23 +39,19 @@ type Component interface {
 
 // Container 依赖注入容器接口
 type Container interface {
+	modules.Container
 	GetConfig() *config.Config
 	GetViper() *viper.Viper
-	GetDB() *gorm.DB
-	GetRedis() *goredis.Client
 	GetJWT() *jwt.Jwt
-	GetLogger() logger.Logger
-	GetMQTT() *mqtt.Client
 	GetRabbitMQProducer() *rabbitmq.ProducerService
-	GetWeChat() *wechat.Manager
-	GetSMS() *sms.Manager
-	GetEmail() *email.Manager
 	GetS3() *s3.Manager
 	GetStorageManager() storage.StorageManager
 	GetWebSocketHub() *websocket.Hub
-	GetScheduler() *scheduler.Scheduler
-	GetCaptchaManager() *captcha.CaptchaManager
 	RegisterComponent(comp Component)
+	RegisterModules(ctx context.Context, candidates ...modules.Module) error
+	StartModules(ctx context.Context) error
+	StopModules(ctx context.Context) error
+	RefreshModule(ctx context.Context, name string, req modules.ModuleRefreshRequest) error
 	Start() error
 	Stop()
 }
@@ -68,62 +63,71 @@ type container struct {
 	redis          *goredis.Client
 	jwt            *jwt.Jwt
 	logger         logger.Logger
-	mqttClient     *mqtt.Client
 	rabbitMQ       *rabbitmq.Manager
-	wechatManager  *wechat.Manager
-	smsManager     *sms.Manager
-	emailManager   *email.Manager
 	s3Manager      *s3.Manager
 	storageManager storage.StorageManager
 	wsHub          *websocket.Hub
-	sched          *scheduler.Scheduler
-	captchaManager *captcha.CaptchaManager
+	runtimeConfig  *runtimeconfig.Store
 
 	components []Component
+
+	moduleMu          sync.RWMutex
+	moduleLifecycleMu sync.Mutex
+	modules           map[string]modules.Module
+	moduleOrder       []string
+	moduleRefreshMu   map[string]*sync.Mutex
+	startedModules    int
+}
+
+// Option composes process-specific infrastructure without coupling modules to cmd entries.
+type Option func(*container) error
+
+// WithAPIInfrastructure enables integrations used by the HTTP API process.
+func WithAPIInfrastructure() Option {
+	return func(c *container) error {
+		if err := c.initRedis(); err != nil {
+			return err
+		}
+		c.initRuntimeConfig()
+		c.initJWT()
+		if err := c.initRabbitMQ(); err != nil {
+			return err
+		}
+		if err := c.initS3(); err != nil {
+			return err
+		}
+		c.initStorageManager()
+		c.initWebSocket()
+		return nil
+	}
 }
 
 // NewEmpty 创建一个空容器，调用方可以按需初始化指定组件。
 func NewEmpty(cfg *config.Config, v *viper.Viper, log logger.Logger) *container {
 	return &container{
-		config:     cfg,
-		viper:      v,
-		logger:     log,
-		components: make([]Component, 0),
+		config:          cfg,
+		viper:           v,
+		logger:          log,
+		components:      make([]Component, 0),
+		modules:         make(map[string]modules.Module),
+		moduleOrder:     make([]string, 0),
+		moduleRefreshMu: make(map[string]*sync.Mutex),
 	}
 }
 
 // New 创建新的容器实例
-func New(cfg *config.Config, v *viper.Viper, log logger.Logger) (Container, error) {
-	c := &container{
-		config:     cfg,
-		viper:      v,
-		logger:     log,
-		components: make([]Component, 0),
-	}
+func New(cfg *config.Config, v *viper.Viper, log logger.Logger, options ...Option) (Container, error) {
+	c := NewEmpty(cfg, v, log)
 
 	// 1. 初始化基础组件
 	if err := c.initDB(); err != nil {
 		return nil, err
 	}
-	if err := c.initRedis(); err != nil {
-		return nil, err
+	for _, option := range options {
+		if err := option(c); err != nil {
+			return nil, err
+		}
 	}
-	c.initJWT()
-
-	// 2. 初始化业务组件
-	if err := c.initMQTT(); err != nil {
-		return nil, err
-	}
-	if err := c.initRabbitMQ(); err != nil {
-		return nil, err
-	}
-	c.initThirdParty()
-	c.initStorageManager()
-	c.initWebSocket()
-	c.initCaptchaManager()
-
-	// 3. 初始化调度器
-	c.initScheduler()
 
 	return c, nil
 }
@@ -174,13 +178,6 @@ func (c *container) initDB() error {
 		c.logger.Warn("failed to register ID generation plugin", zap.Error(err))
 	}
 
-	// Goose 是唯一数据库结构变更入口。
-	c.logger.Info("starting goose database migrations...")
-	if err := migrations.Up(sqlDB); err != nil {
-		return fmt.Errorf("failed to migrate database: %w", err)
-	}
-	c.logger.Info("goose database migrations completed")
-
 	c.db = db
 	return nil
 }
@@ -198,27 +195,6 @@ func (c *container) initRedis() error {
 // initJWT 初始化JWT
 func (c *container) initJWT() {
 	c.jwt = jwt.New(c.config.JWT.Secret, int64(c.config.JWT.Expire))
-}
-
-// initMQTT 初始化MQTT
-func (c *container) initMQTT() error {
-	if !c.config.MQTT.Enabled {
-		return nil
-	}
-	client, err := mqtt.NewClient(&mqtt.Config{
-		Broker:   c.config.MQTT.Broker,
-		ClientID: c.config.MQTT.ClientID,
-		Username: c.config.MQTT.Username,
-		Password: c.config.MQTT.Password,
-		QoS:      c.config.MQTT.QoS,
-	}, c.logger)
-	if err != nil {
-		return fmt.Errorf("failed to create MQTT client: %w", err)
-	}
-
-	c.mqttClient = client
-	c.RegisterComponent(client)
-	return nil
 }
 
 // initRabbitMQ 初始化RabbitMQ
@@ -239,62 +215,31 @@ func (c *container) initRabbitMQ() error {
 	return nil
 }
 
-// initThirdParty 初始化第三方服务
-func (c *container) initThirdParty() {
-	if c.config.WeChat.Enabled {
-		c.wechatManager = wechat.NewManager(wechat.Config{
-			Enabled: c.config.WeChat.Enabled,
-			AppID:   c.config.WeChat.AppID,
-			Secret:  c.config.WeChat.Secret,
-		}, c.logger, c.redis)
+// initS3 initializes the startup-configured storage integration.
+func (c *container) initS3() error {
+	if !c.config.S3.Enabled {
+		return nil
 	}
+	manager, err := s3.NewManager(&s3.Config{
+		Enabled:         true,
+		Endpoint:        c.config.S3.Endpoint,
+		AccessKeyID:     c.config.S3.AccessKeyID,
+		SecretAccessKey: c.config.S3.SecretAccessKey,
+		Region:          c.config.S3.Region,
+		Bucket:          c.config.S3.Bucket,
+		UseSSL:          c.config.S3.UseSSL,
+		ForcePathStyle:  c.config.S3.ForcePathStyle,
+	}, c.logger)
+	if err != nil {
+		return fmt.Errorf("initialize S3 storage: %w", err)
+	}
+	c.s3Manager = manager
+	return nil
+}
 
-	if c.config.SMS.Enabled {
-		smsManager, err := sms.NewManager(sms.Config{
-			AccessKeyId:     c.config.SMS.AccessKeyId,
-			AccessKeySecret: c.config.SMS.AccessKeySecret,
-			SignName:        c.config.SMS.SignName,
-			TemplateCode:    c.config.SMS.TemplateCode,
-		}, c.redis, c.logger)
-		if err != nil {
-			c.logger.Warn("failed to create SMS service", zap.Error(err))
-		} else {
-			c.smsManager = smsManager
-		}
-	}
-
-	if c.config.Email.Enabled {
-		emailManager, err := email.NewManager(email.Config{
-			Host:     c.config.Email.Host,
-			Port:     c.config.Email.Port,
-			Username: c.config.Email.Username,
-			Password: c.config.Email.Password,
-			From:     c.config.Email.From,
-		}, c.redis, c.logger)
-		if err != nil {
-			c.logger.Warn("failed to create email service", zap.Error(err))
-		} else {
-			c.emailManager = emailManager
-		}
-	}
-
-	if c.config.S3.Enabled {
-		s3Manager, err := s3.NewManager(&s3.Config{
-			Enabled:         c.config.S3.Enabled,
-			Endpoint:        c.config.S3.Endpoint,
-			AccessKeyID:     c.config.S3.AccessKeyID,
-			SecretAccessKey: c.config.S3.SecretAccessKey,
-			Region:          c.config.S3.Region,
-			Bucket:          c.config.S3.Bucket,
-			UseSSL:          c.config.S3.UseSSL,
-			ForcePathStyle:  c.config.S3.ForcePathStyle,
-		}, c.logger)
-		if err != nil {
-			c.logger.Warn("failed to create S3 manager", zap.Error(err))
-		} else {
-			c.s3Manager = s3Manager
-		}
-	}
+func (c *container) initRuntimeConfig() {
+	locker := redislock.New(c.redis)
+	c.runtimeConfig = runtimeconfig.NewStore(c.redis, runtimeconfig.NewGormSource(c.db), locker)
 }
 
 // initStorageManager 初始化存储管理器
@@ -309,62 +254,6 @@ func (c *container) initStorageManager() {
 	c.logger.Info("storage manager initialized successfully")
 }
 
-// initCaptchaManager 初始化验证码管理器
-func (c *container) initCaptchaManager() {
-	manager := captcha.NewCaptchaManager()
-
-	// 注册图形验证码提供者
-	if c.config.Captcha.Image.Enabled {
-		imageConfig := &captcha.ImageCaptchaConfig{
-			Enabled: c.config.Captcha.Image.Enabled,
-			Length:  c.config.Captcha.Image.Length,
-			Width:   c.config.Captcha.Image.Width,
-			Height:  c.config.Captcha.Image.Height,
-			Expire:  c.config.Captcha.Image.Expire,
-		}
-		imageProvider := captcha.NewImageCaptchaProvider(imageConfig, c.redis)
-		manager.RegisterProvider(imageProvider)
-	}
-
-	// 注册短信验证码提供者
-	if c.config.Captcha.SMS.Enabled {
-		if c.smsManager == nil {
-			c.logger.Warn("SMS captcha enabled but SMS service not configured")
-		} else {
-			smsConfig := &captcha.SMSCaptchaConfig{
-				Enabled:  c.config.Captcha.SMS.Enabled,
-				Length:   c.config.Captcha.SMS.Length,
-				Expire:   c.config.Captcha.SMS.Expire,
-				Template: c.config.Captcha.SMS.Template,
-				Provider: c.config.Captcha.SMS.Provider,
-			}
-			smsAdapter := captcha.NewSMSManagerAdapter(c.smsManager)
-			smsProvider := captcha.NewSMSCaptchaProvider(smsConfig, c.redis, smsAdapter)
-			manager.RegisterProvider(smsProvider)
-		}
-	}
-
-	// 注册邮箱验证码提供者
-	if c.config.Captcha.Email.Enabled {
-		if c.emailManager == nil {
-			c.logger.Warn("Email captcha enabled but email service not configured")
-		} else {
-			emailConfig := &captcha.EmailCaptchaConfig{
-				Enabled:  c.config.Captcha.Email.Enabled,
-				Length:   c.config.Captcha.Email.Length,
-				Expire:   c.config.Captcha.Email.Expire,
-				Template: c.config.Captcha.Email.Template,
-			}
-			emailAdapter := captcha.NewEmailManagerAdapter(c.emailManager)
-			emailProvider := captcha.NewEmailCaptchaProvider(emailConfig, c.redis, emailAdapter)
-			manager.RegisterProvider(emailProvider)
-		}
-	}
-
-	c.captchaManager = manager
-	c.logger.Info("captcha manager initialized successfully")
-}
-
 // initWebSocket 初始化WebSocket
 func (c *container) initWebSocket() {
 	if !c.config.WebSocket.Enabled {
@@ -372,15 +261,6 @@ func (c *container) initWebSocket() {
 	}
 	c.wsHub = websocket.NewHub(c.logger)
 	c.RegisterComponent(c.wsHub)
-}
-
-// initScheduler 初始化调度器
-func (c *container) initScheduler() {
-	if !c.config.Scheduler.Enabled {
-		return
-	}
-	c.sched = scheduler.New(c.logger)
-	c.RegisterComponent(c.sched)
 }
 
 // GetConfig 获取业务数据。
@@ -401,6 +281,9 @@ func (c *container) GetRedis() *goredis.Client {
 	return c.redis
 }
 
+// GetRuntimeConfig returns the shared database-backed runtime configuration store.
+func (c *container) GetRuntimeConfig() *runtimeconfig.Store { return c.runtimeConfig }
+
 // GetJWT 获取业务数据。
 func (c *container) GetJWT() *jwt.Jwt {
 	return c.jwt
@@ -411,32 +294,12 @@ func (c *container) GetLogger() logger.Logger {
 	return c.logger
 }
 
-// GetMQTT 获取业务数据。
-func (c *container) GetMQTT() *mqtt.Client {
-	return c.mqttClient
-}
-
 // GetRabbitMQProducer 获取业务数据。
 func (c *container) GetRabbitMQProducer() *rabbitmq.ProducerService {
 	if c.rabbitMQ == nil {
 		return nil
 	}
 	return c.rabbitMQ.GetProducer()
-}
-
-// GetWeChat 获取业务数据。
-func (c *container) GetWeChat() *wechat.Manager {
-	return c.wechatManager
-}
-
-// GetSMS 获取业务数据。
-func (c *container) GetSMS() *sms.Manager {
-	return c.smsManager
-}
-
-// GetEmail 获取业务数据。
-func (c *container) GetEmail() *email.Manager {
-	return c.emailManager
 }
 
 // GetS3 获取业务数据。
@@ -454,14 +317,148 @@ func (c *container) GetWebSocketHub() *websocket.Hub {
 	return c.wsHub
 }
 
-// GetScheduler 获取业务数据。
-func (c *container) GetScheduler() *scheduler.Scheduler {
-	return c.sched
+// RegisterModules initializes and registers modules in deterministic order.
+func (c *container) RegisterModules(ctx context.Context, candidates ...modules.Module) error {
+	c.moduleLifecycleMu.Lock()
+	defer c.moduleLifecycleMu.Unlock()
+
+	c.moduleMu.Lock()
+	if c.startedModules != 0 {
+		c.moduleMu.Unlock()
+		return errors.New("cannot register modules after module startup")
+	}
+	seen := make(map[string]struct{}, len(candidates))
+	for _, candidate := range candidates {
+		if candidate == nil {
+			c.moduleMu.Unlock()
+			return errors.New("cannot register a nil module")
+		}
+		name := strings.TrimSpace(candidate.Name())
+		if name == "" {
+			c.moduleMu.Unlock()
+			return errors.New("cannot register a module with an empty name")
+		}
+		if _, exists := c.modules[name]; exists {
+			c.moduleMu.Unlock()
+			return fmt.Errorf("module %q is already registered", name)
+		}
+		if _, exists := seen[name]; exists {
+			c.moduleMu.Unlock()
+			return fmt.Errorf("module %q appears more than once", name)
+		}
+		seen[name] = struct{}{}
+	}
+	for _, candidate := range candidates {
+		name := strings.TrimSpace(candidate.Name())
+		c.modules[name] = candidate
+		c.moduleOrder = append(c.moduleOrder, name)
+		c.moduleRefreshMu[name] = &sync.Mutex{}
+	}
+	c.moduleMu.Unlock()
+
+	initialized := make([]modules.Module, 0, len(candidates))
+	for _, candidate := range candidates {
+		if err := candidate.Init(ctx, c); err != nil {
+			for i := len(initialized) - 1; i >= 0; i-- {
+				_ = initialized[i].Stop(ctx)
+			}
+			c.moduleMu.Lock()
+			for _, rollback := range candidates {
+				name := strings.TrimSpace(rollback.Name())
+				delete(c.modules, name)
+				delete(c.moduleRefreshMu, name)
+			}
+			c.moduleOrder = c.moduleOrder[:len(c.moduleOrder)-len(candidates)]
+			c.moduleMu.Unlock()
+			return fmt.Errorf("initialize module %q: %w", candidate.Name(), err)
+		}
+		initialized = append(initialized, candidate)
+	}
+	return nil
 }
 
-// GetCaptchaManager 获取业务数据。
-func (c *container) GetCaptchaManager() *captcha.CaptchaManager {
-	return c.captchaManager
+// GetModule returns a stable registered module by name.
+func (c *container) GetModule(name string) modules.Module {
+	c.moduleMu.RLock()
+	defer c.moduleMu.RUnlock()
+	return c.modules[name]
+}
+
+// StartModules starts registered modules and rolls back on partial failure.
+func (c *container) StartModules(ctx context.Context) error {
+	c.moduleLifecycleMu.Lock()
+	defer c.moduleLifecycleMu.Unlock()
+
+	c.moduleMu.RLock()
+	if c.startedModules != 0 {
+		c.moduleMu.RUnlock()
+		return errors.New("modules are already started")
+	}
+	ordered := make([]modules.Module, 0, len(c.moduleOrder))
+	for _, name := range c.moduleOrder {
+		ordered = append(ordered, c.modules[name])
+	}
+	c.moduleMu.RUnlock()
+
+	started := make([]modules.Module, 0, len(ordered))
+	for _, candidate := range ordered {
+		if err := candidate.Start(ctx); err != nil {
+			var rollbackErrors []error
+			for i := len(started) - 1; i >= 0; i-- {
+				if stopErr := started[i].Stop(ctx); stopErr != nil {
+					rollbackErrors = append(rollbackErrors, fmt.Errorf("rollback module %q: %w", started[i].Name(), stopErr))
+				}
+			}
+			return errors.Join(append([]error{fmt.Errorf("start module %q: %w", candidate.Name(), err)}, rollbackErrors...)...)
+		}
+		started = append(started, candidate)
+	}
+	c.moduleMu.Lock()
+	c.startedModules = len(started)
+	c.moduleMu.Unlock()
+	return nil
+}
+
+// StopModules stops all started modules in reverse registration order.
+func (c *container) StopModules(ctx context.Context) error {
+	c.moduleLifecycleMu.Lock()
+	defer c.moduleLifecycleMu.Unlock()
+
+	c.moduleMu.RLock()
+	count := c.startedModules
+	ordered := make([]modules.Module, 0, count)
+	for i := 0; i < count; i++ {
+		ordered = append(ordered, c.modules[c.moduleOrder[i]])
+	}
+	c.moduleMu.RUnlock()
+
+	var stopErrors []error
+	for i := len(ordered) - 1; i >= 0; i-- {
+		if err := ordered[i].Stop(ctx); err != nil {
+			stopErrors = append(stopErrors, fmt.Errorf("stop module %q: %w", ordered[i].Name(), err))
+		}
+	}
+	c.moduleMu.Lock()
+	c.startedModules = 0
+	c.moduleMu.Unlock()
+	return errors.Join(stopErrors...)
+}
+
+// RefreshModule serializes explicit refreshes for one module.
+func (c *container) RefreshModule(ctx context.Context, name string, req modules.ModuleRefreshRequest) error {
+	c.moduleMu.RLock()
+	candidate := c.modules[name]
+	refreshMu := c.moduleRefreshMu[name]
+	c.moduleMu.RUnlock()
+	if candidate == nil || refreshMu == nil {
+		return fmt.Errorf("module %q is not registered", name)
+	}
+	refreshMu.Lock()
+	defer refreshMu.Unlock()
+	if err := candidate.Refresh(ctx, req); err != nil {
+		return fmt.Errorf("refresh module %q: %w", name, err)
+	}
+	return nil
 }
 
 // Start 启动组件。

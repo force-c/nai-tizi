@@ -80,13 +80,11 @@ logs/
 *.log.*
 *.log.gz
 
-# 配置文件（包含敏感信息）
-# 保留示例配置，忽略实际配置
-#cmd/api/conf.prod.yaml
-#cmd/api/zaplogger.prod.yaml
-
-cmd/api/conf.dev.yaml
-cmd/api/zaplogger.dev.yaml
+# native 服务本地配置（conf.example.yaml、zaplogger.example.yaml 纳入版本管理）
+native/application/*/conf.dev.yaml
+native/application/*/conf.prod.yaml
+native/application/*/zaplogger.dev.yaml
+native/application/*/zaplogger.prod.yaml
 
 # 环境变量文件
 .env

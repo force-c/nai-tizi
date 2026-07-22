@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	configx "github.com/gcc798/quick.admin/internal/config"
+	configx "github.com/gcc798/lightning/internal/config"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/yaml.v3"

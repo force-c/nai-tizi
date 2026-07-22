@@ -17,31 +17,31 @@ spec:
       terminationGracePeriodSeconds: 40
       containers:
         - name: api
-          image: ghcr.io/your-org/quick-admin:0.1.0
+          image: ghcr.io/your-org/quick-admin-api:0.1.0
           ports:
             - containerPort: 9009
               name: http
           env:
-            - name: QUICK_ADMIN_APP_ENV
+            - name: LIGHTNING_APP_ENV
               value: prod
-            - name: QUICK_ADMIN_SERVER_PORT
+            - name: LIGHTNING_SERVER_PORT
               value: "9009"
-            - name: QUICK_ADMIN_DATABASE_DSN
+            - name: LIGHTNING_DATABASE_DSN
               valueFrom:
                 secretKeyRef:
                   name: quick-admin-secret
                   key: database-dsn
-            - name: QUICK_ADMIN_REDIS_ADDR
+            - name: LIGHTNING_REDIS_ADDR
               valueFrom:
                 configMapKeyRef:
                   name: quick-admin-config
                   key: redis-addr
-            - name: QUICK_ADMIN_REDIS_PASSWORD
+            - name: LIGHTNING_REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: quick-admin-secret
                   key: redis-password
-            - name: QUICK_ADMIN_JWT_SECRET
+            - name: LIGHTNING_JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: quick-admin-secret
@@ -73,3 +73,39 @@ spec:
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quick-admin-scheduler
+  labels:
+    app: quick-admin-scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quick-admin-scheduler
+  template:
+    metadata:
+      labels:
+        app: quick-admin-scheduler
+    spec:
+      terminationGracePeriodSeconds: 40
+      containers:
+        - name: scheduler
+          image: ghcr.io/your-org/quick-admin-scheduler:0.1.0
+          env:
+            - name: LIGHTNING_APP_ENV
+              value: prod
+            - name: LIGHTNING_DATABASE_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: quick-admin-secret
+                  key: database-dsn
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: 500m

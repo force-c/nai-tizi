@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,7 +11,15 @@ import (
 	"github.com/spf13/viper"
 )
 
-const AppEnvVar = "QUICK_ADMIN_APP_ENV"
+const AppEnvVar = "LIGHTNING_APP_ENV"
+
+type Service string
+
+const (
+	ServiceAPI         Service = "api"
+	ServiceScheduler   Service = "scheduler"
+	ServiceUserManager Service = "usermgr"
+)
 
 type Server struct {
 	Port int `mapstructure:"port"`
@@ -44,42 +53,9 @@ type CORS struct {
 	Enabled bool `mapstructure:"enabled"`
 }
 
-type WeChat struct {
-	Enabled    bool   `mapstructure:"enabled" json:"enabled"`
-	AppID      string `mapstructure:"appId" json:"appid"`
-	Secret     string `mapstructure:"secret" json:"secret"`
-	TemplateID string `mapstructure:"templateId" json:"templateId"`
-}
-
-type MQTT struct {
-	Enabled  bool   `mapstructure:"enabled"`
-	Broker   string `mapstructure:"broker"`
-	ClientID string `mapstructure:"clientId"`
-	Username string `mapstructure:"username"`
-	Password string `mapstructure:"password"`
-	QoS      byte   `mapstructure:"qos"`
-}
-
 type RabbitMQ struct {
 	Enabled bool   `mapstructure:"enabled"`
 	URL     string `mapstructure:"url"`
-}
-
-type SMS struct {
-	Enabled         bool   `mapstructure:"enabled"`
-	AccessKeyId     string `mapstructure:"accessKeyId"`
-	AccessKeySecret string `mapstructure:"accessKeySecret"`
-	SignName        string `mapstructure:"signName"`
-	TemplateCode    string `mapstructure:"templateCode"`
-}
-
-type Email struct {
-	Enabled  bool   `mapstructure:"enabled"`
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	Username string `mapstructure:"username"`
-	Password string `mapstructure:"password"`
-	From     string `mapstructure:"from"`
 }
 
 type S3 struct {
@@ -93,10 +69,6 @@ type S3 struct {
 	ForcePathStyle  bool   `mapstructure:"forcePathStyle"`
 }
 
-type Scheduler struct {
-	Enabled bool `mapstructure:"enabled"`
-}
-
 type WebSocket struct {
 	Enabled             bool `mapstructure:"enabled"`
 	TimeoutEnabled      bool `mapstructure:"timeoutEnabled"`
@@ -104,35 +76,6 @@ type WebSocket struct {
 	WriteTimeoutSeconds int  `mapstructure:"writeTimeoutSeconds"`
 	HeartbeatEnabled    bool `mapstructure:"heartbeatEnabled"`
 	MaxReadTimeouts     int  `mapstructure:"maxReadTimeouts"`
-}
-
-type Captcha struct {
-	Image ImageCaptcha `mapstructure:"image"`
-	SMS   SMSCaptcha   `mapstructure:"sms"`
-	Email EmailCaptcha `mapstructure:"email"`
-}
-
-type ImageCaptcha struct {
-	Enabled bool `mapstructure:"enabled"`
-	Length  int  `mapstructure:"length"`
-	Width   int  `mapstructure:"width"`
-	Height  int  `mapstructure:"height"`
-	Expire  int  `mapstructure:"expire"`
-}
-
-type SMSCaptcha struct {
-	Enabled  bool   `mapstructure:"enabled"`
-	Length   int    `mapstructure:"length"`
-	Expire   int    `mapstructure:"expire"`
-	Template string `mapstructure:"template"`
-	Provider string `mapstructure:"provider"`
-}
-
-type EmailCaptcha struct {
-	Enabled  bool   `mapstructure:"enabled"`
-	Length   int    `mapstructure:"length"`
-	Expire   int    `mapstructure:"expire"`
-	Template string `mapstructure:"template"`
 }
 
 type Config struct {
@@ -143,25 +86,22 @@ type Config struct {
 	JWT       JWT       `mapstructure:"jwt"`
 	Auth      Auth      `mapstructure:"auth"`
 	CORS      CORS      `mapstructure:"cors"`
-	Captcha   Captcha   `mapstructure:"captcha"`
-	WeChat    WeChat    `mapstructure:"wechat"`
-	MQTT      MQTT      `mapstructure:"mqtt"`
 	RabbitMQ  RabbitMQ  `mapstructure:"rabbitmq"`
-	SMS       SMS       `mapstructure:"sms"`
-	Email     Email     `mapstructure:"email"`
 	S3        S3        `mapstructure:"s3"`
-	Scheduler Scheduler `mapstructure:"scheduler"`
 	WebSocket WebSocket `mapstructure:"websocket"`
 }
 
-func Load(appDir string) (*Config, *viper.Viper, error) {
+func Load(configDir string, service Service) (*Config, *viper.Viper, error) {
 	profile := CurrentEnv()
 	if profile != "dev" && profile != "prod" {
 		return nil, nil, fmt.Errorf("%s must be dev or prod", AppEnvVar)
 	}
+	if service != ServiceAPI && service != ServiceScheduler && service != ServiceUserManager {
+		return nil, nil, fmt.Errorf("unknown config service %q", service)
+	}
 	v := viper.New()
 	setDefaults(v)
-	v.SetEnvPrefix("QUICK_ADMIN")
+	v.SetEnvPrefix("LIGHTNING")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 	if err := bindEnvironment(v); err != nil {
@@ -169,7 +109,7 @@ func Load(appDir string) (*Config, *viper.Viper, error) {
 	}
 
 	configFileName := fmt.Sprintf("conf.%s.yaml", profile)
-	foundPath, err := ResolveFilePath(appDir, configFileName)
+	foundPath, err := ResolveFilePath(configDir, configFileName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -183,8 +123,8 @@ func Load(appDir string) (*Config, *viper.Viper, error) {
 	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, nil, fmt.Errorf("decode config: %w", err)
 	}
-	cfg.AppDir = appDir
-	if err := cfg.Validate(profile); err != nil {
+	cfg.AppDir = filepath.Dir(foundPath)
+	if err := cfg.Validate(profile, service); err != nil {
 		return nil, nil, err
 	}
 	return &cfg, v, nil
@@ -201,14 +141,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("auth.tokenHeader", "Authorization")
 	v.SetDefault("auth.allowConcurrent", false)
 	v.SetDefault("cors.enabled", false)
-	v.SetDefault("captcha.image.length", 4)
-	v.SetDefault("captcha.image.width", 120)
-	v.SetDefault("captcha.image.height", 40)
-	v.SetDefault("captcha.image.expire", 300)
-	v.SetDefault("captcha.sms.length", 6)
-	v.SetDefault("captcha.sms.expire", 300)
-	v.SetDefault("captcha.email.length", 6)
-	v.SetDefault("captcha.email.expire", 300)
 }
 
 func bindEnvironment(v *viper.Viper) error {
@@ -219,16 +151,8 @@ func bindEnvironment(v *viper.Viper) error {
 		"jwt.secret", "jwt.expire",
 		"auth.tokenHeader", "auth.allowConcurrent",
 		"cors.enabled",
-		"captcha.image.enabled", "captcha.image.length", "captcha.image.width", "captcha.image.height", "captcha.image.expire",
-		"captcha.sms.enabled", "captcha.sms.length", "captcha.sms.expire", "captcha.sms.template", "captcha.sms.provider",
-		"captcha.email.enabled", "captcha.email.length", "captcha.email.expire", "captcha.email.template",
-		"wechat.enabled", "wechat.appId", "wechat.secret", "wechat.templateId",
-		"mqtt.enabled", "mqtt.broker", "mqtt.clientId", "mqtt.username", "mqtt.password", "mqtt.qos",
 		"rabbitmq.enabled", "rabbitmq.url",
-		"sms.enabled", "sms.accessKeyId", "sms.accessKeySecret", "sms.signName", "sms.templateCode",
-		"email.enabled", "email.host", "email.port", "email.username", "email.password", "email.from",
 		"s3.enabled", "s3.endpoint", "s3.accessKeyId", "s3.secretAccessKey", "s3.region", "s3.bucket", "s3.useSSL", "s3.forcePathStyle",
-		"scheduler.enabled",
 		"websocket.enabled", "websocket.timeoutEnabled", "websocket.readTimeoutSeconds", "websocket.writeTimeoutSeconds", "websocket.heartbeatEnabled", "websocket.maxReadTimeouts",
 	}
 	for _, key := range keys {
@@ -242,7 +166,7 @@ func bindEnvironment(v *viper.Viper) error {
 func environmentName(key string) string {
 	runes := []rune(key)
 	var name strings.Builder
-	name.WriteString("QUICK_ADMIN_")
+	name.WriteString("LIGHTNING_")
 	for i, current := range runes {
 		switch {
 		case current == '.':
@@ -261,12 +185,15 @@ func environmentName(key string) string {
 	return name.String()
 }
 
-func (c *Config) Validate(profile string) error {
-	if c.Server.Port < 1 || c.Server.Port > 65535 {
-		return fmt.Errorf("server.port must be between 1 and 65535")
-	}
+func (c *Config) Validate(profile string, service Service) error {
 	if c.Database.DSN == "" {
 		return fmt.Errorf("database.dsn is required")
+	}
+	if service != ServiceAPI {
+		return nil
+	}
+	if c.Server.Port < 1 || c.Server.Port > 65535 {
+		return fmt.Errorf("server.port must be between 1 and 65535")
 	}
 	if c.Redis.Addr == "" {
 		return fmt.Errorf("redis.addr is required")
@@ -277,20 +204,8 @@ func (c *Config) Validate(profile string) error {
 	if profile == "prod" && c.CORS.Enabled {
 		return fmt.Errorf("cors must be disabled in prod")
 	}
-	if c.MQTT.Enabled && (c.MQTT.Broker == "" || c.MQTT.ClientID == "") {
-		return fmt.Errorf("mqtt.broker and mqtt.clientId are required when MQTT is enabled")
-	}
 	if c.RabbitMQ.Enabled && c.RabbitMQ.URL == "" {
 		return fmt.Errorf("rabbitmq.url is required when RabbitMQ is enabled")
-	}
-	if c.WeChat.Enabled && (c.WeChat.AppID == "" || c.WeChat.Secret == "") {
-		return fmt.Errorf("wechat.appId and wechat.secret are required when WeChat is enabled")
-	}
-	if c.SMS.Enabled && (c.SMS.AccessKeyId == "" || c.SMS.AccessKeySecret == "" || c.SMS.SignName == "" || c.SMS.TemplateCode == "") {
-		return fmt.Errorf("SMS credentials, signName and templateCode are required when SMS is enabled")
-	}
-	if c.Email.Enabled && (c.Email.Host == "" || c.Email.Port <= 0 || c.Email.Username == "" || c.Email.Password == "" || c.Email.From == "") {
-		return fmt.Errorf("email host, port, username, password and from are required when email is enabled")
 	}
 	if c.S3.Enabled && (c.S3.Endpoint == "" || c.S3.AccessKeyID == "" || c.S3.SecretAccessKey == "" || c.S3.Bucket == "") {
 		return fmt.Errorf("S3 endpoint, credentials and bucket are required when S3 is enabled")
@@ -305,12 +220,27 @@ func CurrentEnv() string {
 	return "dev"
 }
 
-func ResolveFilePath(appDir, fileName string) (string, error) {
-	workDir, _ := os.Getwd()
-	candidates := []string{
-		filepath.Join(workDir, fileName),
-		filepath.Join(workDir, "cmd", "api", fileName),
-		filepath.Join(appDir, fileName),
+func ResolveFilePath(configDir, fileName string) (string, error) {
+	if strings.TrimSpace(configDir) == "" {
+		return "", errors.New("config directory is required")
+	}
+	workDir, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("resolve working directory: %w", err)
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("resolve executable: %w", err)
+	}
+
+	var candidates []string
+	if filepath.IsAbs(configDir) {
+		candidates = []string{filepath.Join(configDir, fileName)}
+	} else {
+		candidates = []string{
+			filepath.Join(workDir, configDir, fileName),
+			filepath.Join(filepath.Dir(executable), fileName),
+		}
 	}
 	for _, path := range candidates {
 		if _, err := os.Stat(path); err == nil {

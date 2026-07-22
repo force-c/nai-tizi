@@ -1,7 +1,7 @@
 package model
 
 import (
-	"github.com/gcc798/quick.admin/internal/utils"
+	"github.com/gcc798/lightning/internal/utils"
 )
 
 // MRoleApiPermission 角色 API 权限关联表。

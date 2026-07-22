@@ -3,7 +3,7 @@ package model
 import (
 	"encoding/json"
 
-	"github.com/gcc798/quick.admin/internal/utils"
+	"github.com/gcc798/lightning/internal/utils"
 )
 
 // Attachment 附件

@@ -62,7 +62,6 @@ const (
 
 	// 消息队列错误 (203xx)
 	CodeRabbitMQError ErrorCode = 20301
-	CodeMQTTError     ErrorCode = 20302
 
 	// ========== 系统级错误码 (30000-39999) ==========
 	CodePanicError       ErrorCode = 30001
