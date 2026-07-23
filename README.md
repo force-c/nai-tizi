@@ -1,148 +1,118 @@
-# quick.admin
+# Lightning
 
-## 项目说明
+Lightning 是一个后台管理系统脚手架 Monorepo。同一套业务能力提供三种 Go 后端实现，并由一个 React 前端通过统一 HTTP 契约接入。
 
-这是一个极简脚手架仓库，用来并行放置 `quick.admin` 的多套后端实现和前端工程，便于保留业务基线、承载不同框架版本以及统一开展开发与联调。
+项目以 `native` 作为业务语义和接口行为基线，用于探索不依赖完整开源微服务框架的渐进式微服务工程；`kratos` 和 `gozero` 用于对照实现相同业务能力，而不是形成三套不同的接口。
 
-当前仓库更偏向工程骨架与实现对照集合，重点是：
-
-- 保留 `native` 作为基准工程和业务基线
-- 提供 `gozero`、`kratos` 两套重写实现，其同步更新进度可能相对 `native` 滞后
-- 提供 `web-react` 作为唯一的 React 前端工程
-
-当前主要目录：
-
-- `native/`
-  - 原始后端实现
-  - 作为基准工程、业务基线和对照参考
-- `gozero/`
-  - 基于 go-zero 的后端重写版本
-  - 同步更新进度可能相对 `native` 滞后
-- `kratos/`
-  - 基于 Kratos 的后端重写版本
-  - 同步更新进度可能相对 `native` 滞后
-- `web-react/`
-  - React + TypeScript 前端工程
-  - 用于前端开发和联调
-
-## 仓库结构
+## 工程组成
 
 ```text
-quick.admin/
-├── native/
-├── gozero/
-├── kratos/
-├── web-react/
-├── LICENSE
+lightning/
+├── native/      # 原生 Go 实现，业务与 HTTP 契约基线
+├── kratos/      # Kratos 框架实现
+├── gozero/      # go-zero 框架实现
+├── web-react/   # React + TypeScript 管理端
+├── AGENTS.md    # 代码代理开发约定
 └── README.md
 ```
 
-## 各子工程职责
+### native
 
-### `native/`
+`native` 是当前主要演进的后端实现，Go Module 为 `github.com/gcc798/lightning`，使用 Go 1.26.5。
 
-原始业务后端，也是当前仓库的基准工程。
+它从模块化单体起步，通过新增 `application/<service>` 组合共享 Module，按真实的扩容、发布和隔离需求渐进拆分服务。当前包含：
 
-特点：
+- `application/api`：无状态 HTTP API，拥有路由、controller、service、DTO、中间件、OpenAPI 和数据库迁移。
+- `application/scheduler`：有状态定时任务进程，不提供 HTTP 服务，也不执行数据库迁移。
+- `application/usermgr`：创建管理员、重置密码的一次性管理工具。
+- `internal`：多个应用共享、但禁止当前 Go Module 之外导入的基础能力。
 
-- 作为业务语义基线
-- 路由、参数、返回结构、错误语义都以它为重要参考
+API 启动时执行嵌入二进制的 Goose 版本化迁移；数据库结构不使用 GORM `AutoMigrate`。验证码、微信、短信、邮件和 Scheduler 等运行期模块配置保存在 `s_config`，不写入服务 YAML。
 
-### `gozero/`
+详细启动、配置、认证、迁移和部署说明见 [native/README.md](native/README.md)。
 
-基于 go-zero 的重写版本。
+### kratos
 
-特点：
+基于 Kratos 的框架化实现，采用 `sys-api` 和 `sys-rpc` 分层：
 
-- 保留了 `sys-api` / `sys-rpc` 分层
-- 主要用于和原始实现做框架迁移对照
-- 功能同步和接口更新可能相对 `native` 滞后
+- `api/system/v1`：Proto 契约。
+- `application/sys-api`：对外 HTTP 服务。
+- `application/sys-rpc`：内部 RPC 与数据访问服务。
+- `application/sys-rpc/ent/schema`：Ent Schema。
 
-### `kratos/`
+`kratos` 应保持与 `native` 一致的外部 HTTP 契约。
 
-基于 Kratos 的重写版本。
+### gozero
 
-特点：
+基于 go-zero 的框架化实现，保留 `sys-api` 和 `sys-rpc` 分层：
 
-- 当前采用 monorepo 结构
-- 功能同步和接口更新可能相对 `native` 滞后
-- 主要服务位于：
-  - `kratos/application/sys-api`
-  - `kratos/application/sys-rpc`
-- 共享 proto 位于：
-  - `kratos/api/system/v1`
-- 共享基础能力位于：
-  - `kratos/pkg`
-- 详细文档位于：
-  - `kratos/docs`
+- `application/sys-api`：对外 API 服务。
+- `application/sys-rpc`：内部 RPC 服务。
+- `application/sys-api/sys.api`：API 描述文件。
 
-### `web-react/`
+`gozero` 应保持与 `native` 一致的外部 HTTP 契约。
 
-唯一的前端工程，基于 React + TypeScript + Vite + Ant Design 构建。
+### web-react
 
-特点：
+唯一的前端工程，使用 React、TypeScript、Vite 和 Ant Design。前端只依赖一套 HTTP 契约，不为不同后端实现编写兼容分支。
 
-- 对接后端接口
-- 默认开发服务端口为 `3001`
-- 详细说明见 [web-react/README.md](/Users/guoc/dev/code_go/src/quick.admin/web-react/README.md)
+开发服务默认运行在 `http://localhost:3001`，后端 API 默认地址为 `http://localhost:9009`。详细说明见 [web-react/README.md](web-react/README.md)。
 
-## 当前约定
+## 快速启动 native
 
-- `native/` 作为基准工程和业务基线
-- `gozero/` 和 `kratos/` 是两套独立重写实现，同步更新进度可能相对 `native/` 滞后
-- `web-react/` 是唯一前端工程
-- 前端联调时，需要明确当前对接的是哪一套后端
-- 如果对比接口契约、行为或返回结构，优先参考 `native/`
-
-## 常见入口
-
-### 启动或开发 Kratos 版本
-
-目录：
-
-- [/Users/guoc/dev/code_go/src/quick.admin/kratos](/Users/guoc/dev/code_go/src/quick.admin/kratos)
-
-常用命令：
+本地依赖 Go 1.26.5、PostgreSQL 16；API 另外使用 Redis 7。首次启动先生成不会提交到 Git 的本地配置：
 
 ```bash
-cd kratos
-make conf
-make proto-all
-make wire
-make ent
-make test
-make build-all
+cd native
+make init-config
 ```
 
-### 启动或开发 go-zero 版本
-
-目录：
-
-- [/Users/guoc/dev/code_go/src/quick.admin/gozero](/Users/guoc/dev/code_go/src/quick.admin/gozero)
-
-### 开发前端
-
-目录：
-
-- [/Users/guoc/dev/code_go/src/quick.admin/web-react](/Users/guoc/dev/code_go/src/quick.admin/web-react)
-
-常用命令：
+根据需要修改 `application/api/conf.dev.yaml`，然后启动 API：
 
 ```bash
-cd web-react
-pnpm install
-pnpm dev
-pnpm build
+go run ./application/api
 ```
 
-默认访问地址：
+需要运行定时任务时，另开进程启动 Scheduler：
 
-- `http://localhost:3001`
+```bash
+go run ./application/scheduler
+```
 
-## 说明
+也可以通过 Docker Compose 启动 API、Scheduler、PostgreSQL、Redis 和 RustFS：
 
-如果后续继续扩展新的后端实现或新的微服务，建议继续保持：
+```bash
+cd native
+export LIGHTNING_JWT_SECRET='replace-with-at-least-32-random-characters'
+docker compose up --build
+```
 
-- 仓库根目录按实现或子系统分目录
-- 各实现内部再按自身框架规范组织
-- 公共契约、文档和基础设施说明尽量写在对应子工程内
+## 开发与质量检查
+
+各 Go 子工程拥有独立的 `go.mod`，应在各自目录执行命令。
+
+```bash
+# native：test、vet、race、Swagger freshness、Docker build
+(cd native && make ci)
+
+# Kratos：生成代码、测试与构建
+(cd kratos && make proto-all && make ent && make wire && make test && make build-all)
+
+# go-zero
+(cd gozero && go test ./... && make build-all)
+
+# React 前端
+(cd web-react && pnpm install && pnpm build)
+(cd web-react && pnpm dev)
+```
+
+## 契约与开发原则
+
+- `native` 是接口路径、参数、响应结构、错误语义和业务规则的基线。
+- `kratos` 与 `gozero` 可以采用不同工程分层，但不得发明不同的对外业务语义。
+- `web-react` 只面向统一 HTTP 契约；框架后端无法接入时优先修正后端。
+- 本仓库是全新的试验工程，默认不兼容旧代码、旧配置、旧接口或旧数据。
+- 不为了微服务提前拆分；新增独立服务时复用稳定 Module，避免推翻核心业务。
+- 生成代码应通过对应框架命令重新生成，不手工修改生成结果。
+
+完整开发约定见 [AGENTS.md](AGENTS.md)。
