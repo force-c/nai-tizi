@@ -1,6 +1,6 @@
 module github.com/gcc798/lightning
 
-go 1.25.7
+go 1.26.5
 
 require (
 	github.com/alicebob/miniredis/v2 v2.38.0
